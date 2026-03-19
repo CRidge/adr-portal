@@ -1,13 +1,14 @@
 ﻿@page "/"
+@inject RepositoryCatalogState RepositoryCatalogState
 
 <PageTitle>ADR Portal</PageTitle>
 
 <section class="panel">
-    <p class="eyebrow">Phase 1</p>
-    <h1>ADR Portal foundation is ready</h1>
+    <p class="eyebrow">Phase 4</p>
+    <h1>Repository management is active</h1>
     <p class="lead">
-        This shell verifies the core application scaffold: Aspire startup, EF Core persistence wiring,
-        and a minimal Blazor layout with custom styling.
+        Configure repositories under <a class="inline-link" href="/settings/repos">Settings → Repositories</a>.
+        Entries persist in SQLite via EF Core and automatically appear in the sidebar list.
     </p>
     <dl class="status-grid">
         <div>
@@ -21,6 +22,10 @@
         <div>
             <dt>Persistence</dt>
             <dd>EF Core + SQLite</dd>
+        </div>
+        <div>
+            <dt>Managed repositories</dt>
+            <dd>@RepositoryCatalogState.Repositories.Count</dd>
         </div>
     </dl>
 </section>

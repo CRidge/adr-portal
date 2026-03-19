@@ -1,5 +1,8 @@
 using AdrPortal.Web.Components;
+using AdrPortal.Web.State;
+using AdrPortal.Infrastructure.Data;
 using AdrPortal.Infrastructure.Extensions;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,8 +12,15 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddScoped<RepositoryCatalogState>();
 
 var app = builder.Build();
+
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AdrPortalDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
