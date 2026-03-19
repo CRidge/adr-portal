@@ -1,3 +1,4 @@
+using AdrPortal.Core.Madr;
 using AdrPortal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -34,6 +35,9 @@ public static class ServiceCollectionExtensions
         {
             options.UseSqlite(connectionString);
         });
+
+        services.AddSingleton<IMadrParser, MadrParser>();
+        services.AddSingleton<IMadrWriter, MadrWriter>();
 
         return services;
     }
