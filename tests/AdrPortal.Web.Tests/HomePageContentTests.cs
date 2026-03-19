@@ -37,6 +37,8 @@ public class HomePageContentTests
         await Assert.That(markup.Contains("Add repository", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("Edit", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("Remove", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Git remote URL", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Git remote URL (optional)", StringComparison.Ordinal)).IsFalse();
     }
 
     [Test]

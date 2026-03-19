@@ -10,21 +10,18 @@ public sealed class RepositoryEditorModel
     /// <summary>
     /// Gets or sets the display name shown in portal UI.
     /// </summary>
-    [Required]
     [StringLength(200)]
     public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the absolute repository root path.
     /// </summary>
-    [Required]
     [StringLength(1024)]
     public string RootPath { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the relative folder that contains ADR markdown files.
     /// </summary>
-    [Required]
     [StringLength(260)]
     public string AdrFolder { get; set; } = "docs/adr";
 
@@ -35,10 +32,11 @@ public sealed class RepositoryEditorModel
     public string? InboxFolder { get; set; }
 
     /// <summary>
-    /// Gets or sets the optional Git remote URL.
+    /// Gets or sets the required Git remote URL.
     /// </summary>
+    [Required]
     [StringLength(2048)]
-    public string? GitRemoteUrl { get; set; }
+    public string? GitRemoteUrl { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets whether the repository should be active.
