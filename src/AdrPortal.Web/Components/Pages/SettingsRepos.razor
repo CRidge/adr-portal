@@ -2,6 +2,7 @@
 @inject IManagedRepositoryStore ManagedRepositoryStore
 @inject RepositoryCatalogState RepositoryCatalogState
 @inject GlobalLibraryService GlobalLibraryService
+@inject IInboxWatcherCoordinator InboxWatcherCoordinator
 
 <PageTitle>Repository settings</PageTitle>
 
@@ -196,6 +197,7 @@
 
             await LoadRepositoriesAsync(CancellationToken.None);
             await RepositoryCatalogState.RefreshAsync(CancellationToken.None);
+            await InboxWatcherCoordinator.RefreshWatchersAsync(CancellationToken.None);
         }
         catch (InvalidOperationException exception)
         {
@@ -280,6 +282,7 @@
             statusMessage = "Repository removed.";
             await LoadRepositoriesAsync(CancellationToken.None);
             await RepositoryCatalogState.RefreshAsync(CancellationToken.None);
+            await InboxWatcherCoordinator.RefreshWatchersAsync(CancellationToken.None);
         }
         finally
         {

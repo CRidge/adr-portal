@@ -2,6 +2,7 @@
 @inject AiBootstrapService AiBootstrapService
 @inject AdrDocumentService AdrDocumentService
 @inject AdrListViewService AdrListViewService
+@inject RepositoryInboxUploadService RepositoryInboxUploadService
 @using AdrPortal.Core.Ai
 @using AdrPortal.Core.Entities
 @using AdrPortal.Web.Services
@@ -42,6 +43,14 @@ else
             <span><strong>Path:</strong> @repository.RootPath</span>
             <span><strong>ADR folder:</strong> /@repository.AdrFolder.Replace('\\', '/')</span>
             <span><strong>Total ADRs:</strong> @projection.AllItems.Count</span>
+            @if (HasInboxConfigured())
+            {
+                <span><strong>Inbox:</strong> @GetInboxDisplayPath()</span>
+            }
+            else
+            {
+                <span><strong>Inbox:</strong> disabled</span>
+            }
         </div>
     </section>
 
@@ -211,6 +220,24 @@ else
                 }
             </ul>
         }
+
+        @if (HasInboxConfigured())
+        {
+            <div class="adr-upload-zone">
+                <h3>Inbox upload</h3>
+                <p class="adr-upload-zone__hint">
+                    Drag and drop .md files here or use browse. Uploaded files follow the same inbox import pipeline as file-system watcher intake.
+                </p>
+                <label class="adr-upload-zone__drop">
+                    <span class="adr-upload-zone__drop-label">Drop markdown files here, or click to browse</span>
+                    <InputFile class="adr-upload-zone__input" OnChange="HandleInboxUploadAsync" accept=".md,text/markdown" multiple />
+                </label>
+                @if (!string.IsNullOrWhiteSpace(uploadStatusMessage))
+                {
+                    <p class="@(uploadStatusIsError ? "repo-status repo-status--error" : "repo-status")">@uploadStatusMessage</p>
+                }
+            </div>
+        }
     </section>
 }
 
@@ -236,6 +263,8 @@ else
     private bool isApplyingProposals;
     private string? bootstrapMessage;
     private bool bootstrapMessageIsError;
+    private string? uploadStatusMessage;
+    private bool uploadStatusIsError;
 
     /// <summary>
     /// Loads repository ADR data for the requested route parameter.
@@ -254,6 +283,8 @@ else
         isApplyingProposals = false;
         bootstrapMessage = null;
         bootstrapMessageIsError = false;
+        uploadStatusMessage = null;
+        uploadStatusIsError = false;
 
         try
         {
@@ -516,6 +547,71 @@ else
     }
 
     /// <summary>
+    /// Handles manual inbox uploads from the repository ADR route.
+    /// </summary>
+    /// <param name="eventArgs">File upload event arguments.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task HandleInboxUploadAsync(InputFileChangeEventArgs eventArgs)
+    {
+        if (repository is null)
+        {
+            uploadStatusIsError = true;
+            uploadStatusMessage = "Repository context is unavailable. Reload the page and try again.";
+            return;
+        }
+
+        uploadStatusIsError = false;
+        uploadStatusMessage = null;
+        var imported = new List<string>();
+        var failures = new List<string>();
+        foreach (var upload in eventArgs.GetMultipleFiles())
+        {
+            try
+            {
+                await using var uploadStream = upload.OpenReadStream(maxAllowedSize: 1_000_000);
+                var markdown = await InboxImportService.ReadUploadMarkdownAsync(uploadStream, 1_000_000, CancellationToken.None);
+                var documents = new[] { new RepositoryInboxUploadDocument(upload.Name, markdown) };
+                var outcome = await RepositoryInboxUploadService.ImportAsync(repository.Id, documents, CancellationToken.None);
+                imported.AddRange(outcome.ImportedAdrs.Select(item => $"ADR-{item.Number:0000}"));
+                failures.AddRange(outcome.Failures);
+            }
+            catch (InvalidOperationException exception)
+            {
+                failures.Add(exception.Message);
+            }
+            catch (ArgumentException exception)
+            {
+                failures.Add(exception.Message);
+            }
+            catch (IOException exception)
+            {
+                failures.Add(exception.Message);
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                failures.Add(exception.Message);
+            }
+        }
+
+        if (imported.Count > 0)
+        {
+            await ReloadRepositoryAdrsAsync();
+        }
+
+        if (failures.Count is 0)
+        {
+            uploadStatusIsError = false;
+            uploadStatusMessage = $"Imported {imported.Count} file(s): {string.Join(", ", imported)}.";
+            return;
+        }
+
+        uploadStatusIsError = true;
+        uploadStatusMessage = imported.Count > 0
+            ? $"Imported {imported.Count} file(s), but some files failed: {string.Join(" | ", failures)}"
+            : string.Join(" | ", failures);
+    }
+
+    /// <summary>
     /// Gets whether bootstrap actions are currently running.
     /// </summary>
     /// <returns><see langword="true"/> when busy; otherwise <see langword="false"/>.</returns>
@@ -551,5 +647,28 @@ else
     private string GetPageTitle()
     {
         return repository is null ? "Repository ADRs" : $"{repository.DisplayName} ADRs";
+    }
+
+    /// <summary>
+    /// Gets whether inbox features should be shown for the current repository.
+    /// </summary>
+    /// <returns><see langword="true"/> when inbox configuration exists.</returns>
+    private bool HasInboxConfigured()
+    {
+        return !string.IsNullOrWhiteSpace(repository?.InboxFolder);
+    }
+
+    /// <summary>
+    /// Gets inbox path display text for repository context.
+    /// </summary>
+    /// <returns>Inbox display path.</returns>
+    private string GetInboxDisplayPath()
+    {
+        if (repository is null || string.IsNullOrWhiteSpace(repository.InboxFolder))
+        {
+            return "disabled";
+        }
+
+        return repository.InboxFolder.Replace('\\', '/');
     }
 }

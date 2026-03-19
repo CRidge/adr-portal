@@ -18,8 +18,12 @@ builder.Services.AddScoped<IMadrRepositoryFactory, MadrRepositoryFactory>();
 builder.Services.AddScoped<AdrDocumentService>();
 builder.Services.AddScoped<GlobalLibraryService>();
 builder.Services.AddScoped<AiBootstrapService>();
+builder.Services.AddScoped<IInboxImportService, InboxImportService>();
+builder.Services.AddScoped<RepositoryInboxUploadService>();
 builder.Services.AddSingleton<AdrListViewService>();
 builder.Services.AddSingleton<IAdrMarkdownRenderer, AdrMarkdownRenderer>();
+builder.Services.AddSingleton<IInboxWatcherCoordinator, InboxWatcherCoordinator>();
+builder.Services.AddSingleton<IHostedService>(serviceProvider => (InboxWatcherCoordinator)serviceProvider.GetRequiredService<IInboxWatcherCoordinator>());
 
 var app = builder.Build();
 
@@ -27,6 +31,12 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AdrPortalDbContext>();
     await dbContext.Database.MigrateAsync();
+}
+
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var inboxWatcherCoordinator = scope.ServiceProvider.GetRequiredService<IInboxWatcherCoordinator>();
+    await inboxWatcherCoordinator.RefreshWatchersAsync(CancellationToken.None);
 }
 
 // Configure the HTTP request pipeline.
