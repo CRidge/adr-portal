@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AdrPortal.AppHost/AdrPortal.AppHost.csproj" />
+    <Project Path="src/AdrPortal.Core/AdrPortal.Core.csproj" />
+    <Project Path="src/AdrPortal.Infrastructure/AdrPortal.Infrastructure.csproj" />
+    <Project Path="src/AdrPortal.ServiceDefaults/AdrPortal.ServiceDefaults.csproj" />
+    <Project Path="src/AdrPortal.Web/AdrPortal.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AdrPortal.Core.Tests/AdrPortal.Core.Tests.csproj" />
+    <Project Path="tests/AdrPortal.Infrastructure.Tests/AdrPortal.Infrastructure.Tests.csproj" />
+    <Project Path="tests/AdrPortal.Web.Tests/AdrPortal.Web.Tests.csproj" />
+  </Folder>
+</Solution>

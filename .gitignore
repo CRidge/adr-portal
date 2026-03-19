@@ -430,6 +430,9 @@ FodyWeavers.xsd
 # Copilot CLI session data (exclude personal config)
 .copilot/
 
+# Aspire local run metadata
+.aspire/
+
 # Squad agent transient inbox (ephemeral drop-zone, not for version control)
 .squad/decisions/inbox/
 
