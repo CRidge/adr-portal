@@ -30,7 +30,10 @@ else
                 <h1>@repository.DisplayName</h1>
                 <p class="lead">Browse architectural decisions from <code>@($"/{repository.AdrFolder}")</code> with status filters and search.</p>
             </div>
-            <a class="adr-page__settings-link" href="/settings/repos">Manage repositories</a>
+            <div class="adr-page__actions">
+                <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}/adr/new")">+ New ADR</a>
+                <a class="adr-page__settings-link" href="/settings/repos">Manage repositories</a>
+            </div>
         </header>
 
         <div class="adr-page__context">
@@ -89,7 +92,10 @@ else
                             <strong>ADR-@item.Number.ToString("0000") • @item.Title</strong>
                             <span>@item.Date.ToString("yyyy-MM-dd") · @item.Slug</span>
                         </a>
-                        <span class="state-badge @item.StatusView.CssModifier">@item.StatusView.Label</span>
+                        <div class="adr-row__actions">
+                            <span class="state-badge @item.StatusView.CssModifier">@item.StatusView.Label</span>
+                            <a class="adr-row__edit" href="@($"/repos/{RepositoryId}/adr/{item.Number}/edit")">Edit</a>
+                        </div>
                     </li>
                 }
             </ul>

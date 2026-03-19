@@ -3,7 +3,7 @@ namespace AdrPortal.Web.Tests;
 public class HomePageContentTests
 {
     [Test]
-    public async Task HomePage_IncludesPhaseFiveSignals()
+    public async Task HomePage_IncludesPhaseSixSignals()
     {
         var repositoryRoot = ResolveRepositoryRoot();
         var homePagePath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "Home.razor");
@@ -11,8 +11,8 @@ public class HomePageContentTests
 
         var homeMarkup = await File.ReadAllTextAsync(normalizedPath);
 
-        await Assert.That(homeMarkup.Contains("Phase 5", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(homeMarkup.Contains("ADR browse and detail views are active", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Phase 6", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("ADR create, edit, browse, and detail views are active", StringComparison.Ordinal)).IsTrue();
         await Assert.That(homeMarkup.Contains("/settings/repos", StringComparison.Ordinal)).IsTrue();
     }
 
@@ -53,23 +53,31 @@ public class HomePageContentTests
         await Assert.That(markup.Contains("shell__repo-list", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/repos/{repository.Id}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__repo-indicator", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Phase 6 ADR create and edit", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
-    public async Task RepositoryRoutes_ContainListAndDetailPages()
+    public async Task RepositoryRoutes_ContainListDetailAndEditorPages()
     {
         var repositoryRoot = ResolveRepositoryRoot();
         var listPath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "RepositoryAdrs.razor");
         var detailPath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "RepositoryAdrDetail.razor");
+        var editorPath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "RepositoryAdrEditor.razor");
         var listMarkup = await File.ReadAllTextAsync(listPath);
         var detailMarkup = await File.ReadAllTextAsync(detailPath);
+        var editorMarkup = await File.ReadAllTextAsync(editorPath);
 
         await Assert.That(listMarkup.Contains("@page \"/repos/{RepositoryId:int}\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(listMarkup.Contains("Status filters", StringComparison.Ordinal)).IsTrue();
         await Assert.That(listMarkup.Contains("Search ADRs", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(listMarkup.Contains("+ New ADR", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/{Number:int}\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("state-badge", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Render(result.Value.Adr.RawMarkdown)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/new\"", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/{Number:int}/edit\"", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("MADR markdown body", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("Raw HTML is not accepted", StringComparison.Ordinal)).IsTrue();
     }
 
     private static string ResolveRepositoryRoot()

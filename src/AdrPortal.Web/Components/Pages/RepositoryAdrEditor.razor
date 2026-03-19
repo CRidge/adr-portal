@@ -1,0 +1,379 @@
+@page "/repos/{RepositoryId:int}/adr/new"
+@page "/repos/{RepositoryId:int}/adr/{Number:int}/edit"
+@inject AdrDocumentService AdrDocumentService
+@using AdrPortal.Core.Entities
+@using AdrPortal.Web.Services
+
+<PageTitle>@GetPageTitle()</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <section class="panel adr-editor-page">
+        <h1>@GetHeading()</h1>
+        <p class="repo-status repo-status--error">@loadError</p>
+        <a class="inline-link" href="@($"/repos/{RepositoryId}")">Return to ADR list</a>
+    </section>
+}
+else if (repository is null || editContext is null)
+{
+    <section class="panel adr-editor-page">
+        <h1>@GetHeading()</h1>
+        <p class="shell__hint">Loading editor…</p>
+    </section>
+}
+else
+{
+    <section class="panel adr-editor-page">
+        <header class="adr-editor-page__header">
+            <div>
+                <p class="eyebrow">Repository ADR editor</p>
+                <h1>@repository.DisplayName</h1>
+                <p class="lead">@GetLeadText()</p>
+            </div>
+            <div class="adr-editor-page__actions">
+                <a class="adr-editor-page__link" href="@($"/repos/{RepositoryId}")">Back to list</a>
+                @if (!isCreateMode && Number is int numberValue)
+                {
+                    <a class="adr-editor-page__link" href="@($"/repos/{RepositoryId}/adr/{numberValue}")">View ADR</a>
+                }
+            </div>
+        </header>
+
+        <div class="adr-editor-page__context">
+            <span><strong>Path:</strong> @repository.RootPath</span>
+            <span><strong>ADR folder:</strong> /@repository.AdrFolder.Replace('\\', '/')</span>
+            <span><strong>Status:</strong> @GetStatusBadgeText()</span>
+        </div>
+    </section>
+
+    <section class="panel adr-editor">
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <p class="@GetStatusClass()">@statusMessage</p>
+        }
+
+        <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <fieldset class="adr-editor__fieldset">
+                <legend class="adr-editor__legend">MADR metadata</legend>
+
+                <div class="adr-editor__grid adr-editor__grid--three">
+                    <div class="adr-editor__field">
+                        <label class="adr-editor__label" for="adr-title">Title</label>
+                        <InputText id="adr-title" class="adr-editor__input" @bind-Value="editorModel.Title" />
+                        <ValidationMessage For="() => editorModel.Title" />
+                    </div>
+
+                    <div class="adr-editor__field">
+                        <label class="adr-editor__label" for="adr-slug">Slug</label>
+                        <InputText id="adr-slug" class="adr-editor__input" @bind-Value="editorModel.Slug" />
+                        <ValidationMessage For="() => editorModel.Slug" />
+                    </div>
+
+                    <div class="adr-editor__field">
+                        <label class="adr-editor__label" for="adr-date">Decision date</label>
+                        <InputDate id="adr-date" class="adr-editor__input" @bind-Value="editorModel.Date" />
+                        <ValidationMessage For="() => editorModel.Date" />
+                    </div>
+                </div>
+
+                <div class="adr-editor__grid adr-editor__grid--two">
+                    <div class="adr-editor__field">
+                        <label class="adr-editor__label" for="adr-status">Status</label>
+                        <InputSelect id="adr-status" class="adr-editor__input" @bind-Value="editorModel.Status">
+                            @foreach (var status in editableStatuses)
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => editorModel.Status" />
+                    </div>
+
+                    <div class="adr-editor__field">
+                        <label class="adr-editor__label" for="adr-superseded-by">Superseded by ADR (optional)</label>
+                        <InputNumber id="adr-superseded-by" class="adr-editor__input" @bind-Value="editorModel.SupersededByNumber" />
+                        <ValidationMessage For="() => editorModel.SupersededByNumber" />
+                    </div>
+                </div>
+
+                <div class="adr-editor__grid adr-editor__grid--three">
+                    <div class="adr-editor__field">
+                        <label class="adr-editor__label" for="adr-decision-makers">Decision makers</label>
+                        <InputTextArea id="adr-decision-makers" class="adr-editor__textarea adr-editor__textarea--small" @bind-Value="editorModel.DecisionMakersText" />
+                        <ValidationMessage For="() => editorModel.DecisionMakersText" />
+                    </div>
+
+                    <div class="adr-editor__field">
+                        <label class="adr-editor__label" for="adr-consulted">Consulted</label>
+                        <InputTextArea id="adr-consulted" class="adr-editor__textarea adr-editor__textarea--small" @bind-Value="editorModel.ConsultedText" />
+                        <ValidationMessage For="() => editorModel.ConsultedText" />
+                    </div>
+
+                    <div class="adr-editor__field">
+                        <label class="adr-editor__label" for="adr-informed">Informed</label>
+                        <InputTextArea id="adr-informed" class="adr-editor__textarea adr-editor__textarea--small" @bind-Value="editorModel.InformedText" />
+                        <ValidationMessage For="() => editorModel.InformedText" />
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="adr-editor__fieldset">
+                <legend class="adr-editor__legend">MADR markdown body</legend>
+                <p class="adr-editor__hint">
+                    Provide markdown only. Raw HTML is not accepted for safety.
+                </p>
+                <InputTextArea id="adr-markdown-body"
+                               class="adr-editor__textarea adr-editor__textarea--body"
+                               @bind-Value="editorModel.MarkdownBody" />
+                <ValidationMessage For="() => editorModel.MarkdownBody" />
+            </fieldset>
+
+            <div class="adr-editor__actions">
+                <button type="submit" class="adr-editor__button adr-editor__button--primary" disabled="@isSaving">
+                    @GetSaveButtonLabel()
+                </button>
+                <button type="button" class="adr-editor__button" @onclick="ResetAsync" disabled="@isSaving">
+                    Reset
+                </button>
+            </div>
+        </EditForm>
+    </section>
+}
+
+@code
+{
+    private static readonly IReadOnlyList<AdrStatus> editableStatuses =
+    [
+        AdrStatus.Proposed,
+        AdrStatus.Accepted,
+        AdrStatus.Rejected,
+        AdrStatus.Superseded,
+        AdrStatus.Deprecated
+    ];
+
+    [Parameter]
+    public int RepositoryId { get; set; }
+
+    [Parameter]
+    public int? Number { get; set; }
+
+    private ManagedRepository? repository;
+    private AdrEditorModel editorModel = AdrEditorModel.CreateForNew();
+    private AdrEditorModel initialModel = AdrEditorModel.CreateForNew();
+    private EditContext? editContext;
+    private bool isSaving;
+    private bool isCreateMode;
+    private string? loadError;
+    private string? statusMessage;
+    private bool statusIsError;
+
+    /// <summary>
+    /// Loads repository and ADR values required by create/edit routes.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    protected override async Task OnParametersSetAsync()
+    {
+        loadError = null;
+        statusMessage = null;
+        statusIsError = false;
+        repository = null;
+        editContext = null;
+        isSaving = false;
+        isCreateMode = !Number.HasValue;
+
+        try
+        {
+            if (isCreateMode)
+            {
+                var createResult = await AdrDocumentService.GetRepositoryForCreateAsync(RepositoryId, CancellationToken.None);
+                if (createResult is null)
+                {
+                    loadError = $"Repository '{RepositoryId}' was not found.";
+                    return;
+                }
+
+                repository = createResult.Value.Repository;
+                editorModel = AdrEditorModel.CreateForNew();
+                editorModel.Slug = $"adr-{createResult.Value.NextNumber:0000}";
+                initialModel = editorModel.Clone();
+                editContext = new EditContext(editorModel);
+                return;
+            }
+
+            var detailResult = await AdrDocumentService.GetRepositoryAdrAsync(RepositoryId, Number!.Value, CancellationToken.None);
+            if (detailResult is null)
+            {
+                loadError = $"ADR-{Number:0000} was not found for repository '{RepositoryId}'.";
+                return;
+            }
+
+            repository = detailResult.Value.Repository;
+            editorModel = AdrEditorModel.FromAdr(detailResult.Value.Adr);
+            initialModel = editorModel.Clone();
+            editContext = new EditContext(editorModel);
+        }
+        catch (InvalidOperationException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            loadError = exception.Message;
+        }
+    }
+
+    /// <summary>
+    /// Persists current form values through the repository layer.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task SaveAsync()
+    {
+        if (isSaving || repository is null)
+        {
+            return;
+        }
+
+        isSaving = true;
+        statusMessage = null;
+        statusIsError = false;
+
+        try
+        {
+            AdrPersistResult? persistResult = isCreateMode
+                ? await AdrDocumentService.CreateAdrAsync(RepositoryId, editorModel.ToInput(), CancellationToken.None)
+                : await AdrDocumentService.UpdateAdrAsync(RepositoryId, Number!.Value, editorModel.ToInput(), CancellationToken.None);
+
+            if (persistResult is null)
+            {
+                statusIsError = true;
+                statusMessage = isCreateMode
+                    ? "Unable to create ADR because the repository no longer exists."
+                    : "Unable to save ADR because it no longer exists.";
+                return;
+            }
+
+            repository = persistResult.Repository;
+            editorModel = AdrEditorModel.FromAdr(persistResult.Adr);
+            initialModel = editorModel.Clone();
+            editContext = new EditContext(editorModel);
+            Number = persistResult.Adr.Number;
+            isCreateMode = false;
+            statusMessage = $"Saved ADR-{persistResult.Adr.Number:0000}.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            statusIsError = true;
+            statusMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            statusIsError = true;
+            statusMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            statusIsError = true;
+            statusMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            statusIsError = true;
+            statusMessage = exception.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    /// <summary>
+    /// Restores the editor model back to loaded defaults.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private Task ResetAsync()
+    {
+        if (isSaving)
+        {
+            return Task.CompletedTask;
+        }
+
+        editorModel = initialModel.Clone();
+        editContext = new EditContext(editorModel);
+        statusMessage = "Editor reset to loaded values.";
+        statusIsError = false;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Gets heading text for create or edit mode.
+    /// </summary>
+    /// <returns>Heading text.</returns>
+    private string GetHeading()
+    {
+        return isCreateMode ? "Create ADR" : "Edit ADR";
+    }
+
+    /// <summary>
+    /// Gets lead text describing current route mode.
+    /// </summary>
+    /// <returns>Route-specific lead content.</returns>
+    private string GetLeadText()
+    {
+        if (isCreateMode)
+        {
+            return "Create a new MADR file using required metadata and markdown sections.";
+        }
+
+        return Number is int numberValue
+            ? $"Edit ADR-{numberValue:0000} metadata and markdown content."
+            : "Edit ADR metadata and markdown content.";
+    }
+
+    /// <summary>
+    /// Gets status badge text for page context.
+    /// </summary>
+    /// <returns>Route status text.</returns>
+    private string GetStatusBadgeText()
+    {
+        return isCreateMode ? "Draft (new)" : editorModel.Status.ToString();
+    }
+
+    /// <summary>
+    /// Gets status CSS class for informational or error message.
+    /// </summary>
+    /// <returns>CSS class for status message.</returns>
+    private string GetStatusClass()
+    {
+        return statusIsError ? "repo-status repo-status--error" : "repo-status";
+    }
+
+    /// <summary>
+    /// Gets save button label.
+    /// </summary>
+    /// <returns>Button text for current mode.</returns>
+    private string GetSaveButtonLabel()
+    {
+        return isCreateMode ? "Create ADR" : "Save changes";
+    }
+
+    /// <summary>
+    /// Gets page title text.
+    /// </summary>
+    /// <returns>Document title.</returns>
+    private string GetPageTitle()
+    {
+        return isCreateMode
+            ? "Create ADR"
+            : Number is int numberValue ? $"Edit ADR-{numberValue:0000}" : "Edit ADR";
+    }
+}
