@@ -27,6 +27,28 @@ public class AdrPortalDbContextModelTests
     }
 
     [Test]
+    public async Task GlobalAdrModel_MapsToExpectedTables()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var options = new DbContextOptionsBuilder<AdrPortalDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var context = new AdrPortalDbContext(options);
+        await context.Database.EnsureCreatedAsync();
+
+        var globalAdrEntity = context.Model.FindEntityType(typeof(GlobalAdr));
+        var globalAdrInstanceEntity = context.Model.FindEntityType(typeof(GlobalAdrInstance));
+
+        await Assert.That(globalAdrEntity).IsNotNull();
+        await Assert.That(globalAdrEntity!.GetTableName()).IsEqualTo("GlobalAdrs");
+        await Assert.That(globalAdrInstanceEntity).IsNotNull();
+        await Assert.That(globalAdrInstanceEntity!.GetTableName()).IsEqualTo("GlobalAdrInstances");
+    }
+
+    [Test]
     public async Task DbContext_ExposesManagedRepositoriesSet()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");

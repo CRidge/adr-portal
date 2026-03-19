@@ -132,6 +132,80 @@
     padding: 0;
 }
 
+.adr-detail__transitions {
+    border: 1px solid var(--app-border);
+    border-radius: 0.7rem;
+    padding: 0.75rem;
+    background-color: #f8fafc;
+}
+
+.adr-detail__transitions h3 {
+    margin: 0 0 0.55rem 0;
+    font-size: 0.95rem;
+}
+
+.adr-detail__transition-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.adr-detail__transition-row label {
+    font-size: 0.85rem;
+    color: var(--app-muted);
+    font-weight: 600;
+}
+
+.adr-detail__supersede-input {
+    width: 8rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 0.45rem;
+    border: 1px solid var(--app-border);
+    background-color: #ffffff;
+}
+
+.adr-detail__button {
+    border: 1px solid var(--app-border);
+    border-radius: 0.55rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    background-color: #ffffff;
+    color: var(--app-text);
+    cursor: pointer;
+}
+
+.adr-detail__button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.adr-detail__button--accept {
+    border-color: #bbf7d0;
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.adr-detail__button--reject {
+    border-color: #fecaca;
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.adr-detail__button--supersede {
+    border-color: #fde68a;
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.adr-detail__button--deprecate {
+    border-color: #cbd5e1;
+    background-color: #f1f5f9;
+    color: #334155;
+}
+
 .state-badge {
     display: inline-flex;
     align-items: center;

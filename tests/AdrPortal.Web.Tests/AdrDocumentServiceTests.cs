@@ -20,7 +20,8 @@ public class AdrDocumentServiceTests
         var managedStore = new FakeManagedRepositoryStore(repository);
         var fileRepository = new FakeAdrFileRepository(adrs);
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
 
         var result = await service.GetRepositoryWithAdrsAsync(repository.Id, CancellationToken.None);
 
@@ -38,7 +39,8 @@ public class AdrDocumentServiceTests
         var managedStore = new FakeManagedRepositoryStore(repository: null);
         var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
 
         var result = await service.GetRepositoryWithAdrsAsync(repositoryId: 999, CancellationToken.None);
 
@@ -59,7 +61,8 @@ public class AdrDocumentServiceTests
         var managedStore = new FakeManagedRepositoryStore(repository);
         var fileRepository = new FakeAdrFileRepository(adrs);
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
 
         var result = await service.GetRepositoryAdrAsync(repositoryId: 7, number: 12, CancellationToken.None);
 
@@ -76,7 +79,8 @@ public class AdrDocumentServiceTests
         var managedStore = new FakeManagedRepositoryStore(repository);
         var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
 
         var result = await service.GetRepositoryAdrAsync(repositoryId: 8, number: 404, CancellationToken.None);
 
@@ -94,7 +98,8 @@ public class AdrDocumentServiceTests
         ]);
         var managedStore = new FakeManagedRepositoryStore(repository);
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
 
         var result = await service.GetRepositoryForCreateAsync(repository.Id, CancellationToken.None);
 
@@ -112,7 +117,8 @@ public class AdrDocumentServiceTests
         ]);
         var managedStore = new FakeManagedRepositoryStore(repository);
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
         var editorModel = AdrEditorModel.CreateForNew();
         editorModel.Title = "Introduce Request Caching";
         editorModel.Slug = "introduce-request-caching";
@@ -153,7 +159,17 @@ Latency is too high.
         var fileRepository = new FakeAdrFileRepository([existingAdr]);
         var managedStore = new FakeManagedRepositoryStore(repository);
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore([
+            new GlobalAdr
+            {
+                GlobalId = existingAdr.GlobalId!.Value,
+                Title = "Use Redis",
+                CurrentVersion = 3,
+                RegisteredAtUtc = new DateTime(2026, 3, 18, 0, 0, 0, DateTimeKind.Utc),
+                LastUpdatedAtUtc = new DateTime(2026, 3, 18, 0, 0, 0, DateTimeKind.Utc)
+            }
+        ]);
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
         var updateModel = AdrEditorModel.FromAdr(existingAdr);
         updateModel.Title = "Use Redis for Session Cache";
         updateModel.Slug = "use-redis-session-cache";
@@ -187,7 +203,8 @@ Updated decision details.
         var managedStore = new FakeManagedRepositoryStore(repository);
         var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
         var input = new AdrEditorInput
         {
             Title = "Use Queues",
@@ -222,7 +239,8 @@ Updated decision details.
         var managedStore = new FakeManagedRepositoryStore(repository);
         var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
         var input = new AdrEditorInput
         {
             Title = "Use Queues",
@@ -257,7 +275,8 @@ Updated decision details.
         var managedStore = new FakeManagedRepositoryStore(repository);
         var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
         var factory = new FakeMadrRepositoryFactory(fileRepository);
-        var service = new AdrDocumentService(managedStore, factory);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
         var input = new AdrEditorInput
         {
             Title = "Use Queues",
@@ -274,6 +293,335 @@ Updated decision details.
 
         await Assert.That(result).IsNull();
         await Assert.That(fileRepository.WriteCallCount).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Accept_RegistersUnlinkedAdrAsGlobalVersionOne()
+    {
+        var repository = CreateRepository(id: 90);
+        var proposedAdr = CreateAdr(number: 14, title: "Adopt OpenTelemetry", slug: "adopt-opentelemetry", status: AdrStatus.Proposed);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([proposedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        var result = await service.TransitionAdrAsync(repository.Id, proposedAdr.Number, AdrTransitionAction.Accept, supersededByNumber: null, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Adr.Status).IsEqualTo(AdrStatus.Accepted);
+        await Assert.That(result.Adr.GlobalId).IsNotNull();
+        await Assert.That(result.Adr.GlobalVersion).IsEqualTo(1);
+        await Assert.That(result.Adr.SupersededByNumber).IsNull();
+        await Assert.That(globalStore.AddCallCount).IsEqualTo(1);
+        await Assert.That(globalStore.UpsertCallCount).IsEqualTo(1);
+        await Assert.That(globalStore.LastAddedGlobalAdr).IsNotNull();
+        await Assert.That(globalStore.LastAddedGlobalAdr!.CurrentVersion).IsEqualTo(1);
+        await Assert.That(globalStore.LastUpsertedInstance).IsNotNull();
+        await Assert.That(globalStore.LastUpsertedInstance!.BaseTemplateVersion).IsEqualTo(1);
+        await Assert.That(fileRepository.LastWrittenAdr).IsNotNull();
+        await Assert.That(fileRepository.LastWrittenAdr!.GlobalId).IsEqualTo(result.Adr.GlobalId);
+        await Assert.That(fileRepository.LastWrittenAdr.GlobalVersion).IsEqualTo(1);
+        await Assert.That(result.Message.Contains("registered in the global library as v1", StringComparison.OrdinalIgnoreCase)).IsTrue();
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Accept_PreservesExistingGlobalLinkAndOnlyUpsertsInstance()
+    {
+        var repository = CreateRepository(id: 91);
+        var globalId = Guid.Parse("9ad4d713-0f2e-4564-90fe-a7980ed10d32");
+        var proposedAdr = CreateAdr(number: 4, title: "Use Vault", slug: "use-vault", status: AdrStatus.Proposed) with
+        {
+            GlobalId = globalId,
+            GlobalVersion = 3
+        };
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([proposedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore([
+            new GlobalAdr
+            {
+                GlobalId = globalId,
+                Title = "Use Vault",
+                CurrentVersion = 5,
+                RegisteredAtUtc = DateTime.UtcNow.AddDays(-5),
+                LastUpdatedAtUtc = DateTime.UtcNow.AddDays(-1)
+            }
+        ]);
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        var result = await service.TransitionAdrAsync(repository.Id, proposedAdr.Number, AdrTransitionAction.Accept, supersededByNumber: null, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Adr.Status).IsEqualTo(AdrStatus.Accepted);
+        await Assert.That(result.Adr.GlobalId).IsEqualTo(globalId);
+        await Assert.That(result.Adr.GlobalVersion).IsEqualTo(3);
+        await Assert.That(globalStore.AddCallCount).IsEqualTo(0);
+        await Assert.That(globalStore.UpsertCallCount).IsEqualTo(1);
+        await Assert.That(globalStore.LastUpsertedInstance).IsNotNull();
+        await Assert.That(globalStore.LastUpsertedInstance!.GlobalId).IsEqualTo(globalId);
+        await Assert.That(globalStore.LastUpsertedInstance.BaseTemplateVersion).IsEqualTo(3);
+        await Assert.That(result.Message.Contains("linked to existing global ADR", StringComparison.OrdinalIgnoreCase)).IsTrue();
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Accept_UsesGlobalCurrentVersionWhenAdrVersionMissing()
+    {
+        var repository = CreateRepository(id: 92);
+        var globalId = Guid.Parse("6846a939-2840-40ce-8321-a0cd2d683178");
+        var proposedAdr = CreateAdr(number: 11, title: "Use Kafka", slug: "use-kafka", status: AdrStatus.Proposed) with
+        {
+            GlobalId = globalId,
+            GlobalVersion = null
+        };
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([proposedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore([
+            new GlobalAdr
+            {
+                GlobalId = globalId,
+                Title = "Use Kafka",
+                CurrentVersion = 6,
+                RegisteredAtUtc = DateTime.UtcNow.AddDays(-10),
+                LastUpdatedAtUtc = DateTime.UtcNow.AddDays(-1)
+            }
+        ]);
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        var result = await service.TransitionAdrAsync(repository.Id, proposedAdr.Number, AdrTransitionAction.Accept, supersededByNumber: null, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Adr.GlobalVersion).IsEqualTo(6);
+        await Assert.That(globalStore.LastUpsertedInstance).IsNotNull();
+        await Assert.That(globalStore.LastUpsertedInstance!.BaseTemplateVersion).IsEqualTo(6);
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Accept_ThrowsWhenLinkedGlobalAdrIsMissing()
+    {
+        var repository = CreateRepository(id: 93);
+        var missingGlobalId = Guid.Parse("581e042f-7fa9-4052-b157-07a2a3f56f4d");
+        var proposedAdr = CreateAdr(number: 16, title: "Use NATS", slug: "use-nats", status: AdrStatus.Proposed) with
+        {
+            GlobalId = missingGlobalId,
+            GlobalVersion = 2
+        };
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([proposedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        Exception? exception = null;
+        try
+        {
+            _ = await service.TransitionAdrAsync(repository.Id, proposedAdr.Number, AdrTransitionAction.Accept, supersededByNumber: null, CancellationToken.None);
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception is InvalidOperationException).IsTrue();
+        await Assert.That(exception!.Message.Contains("not registered", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(fileRepository.WriteCallCount).IsEqualTo(0);
+        await Assert.That(globalStore.UpsertCallCount).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Reject_FromProposed_UpdatesStatus()
+    {
+        var repository = CreateRepository(id: 94);
+        var proposedAdr = CreateAdr(number: 22, title: "Use SOAP", slug: "use-soap", status: AdrStatus.Proposed) with
+        {
+            SupersededByNumber = 100
+        };
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([proposedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        var result = await service.TransitionAdrAsync(repository.Id, proposedAdr.Number, AdrTransitionAction.Reject, supersededByNumber: null, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Adr.Status).IsEqualTo(AdrStatus.Rejected);
+        await Assert.That(result.Adr.SupersededByNumber).IsNull();
+        await Assert.That(fileRepository.LastWrittenAdr).IsNotNull();
+        await Assert.That(fileRepository.LastWrittenAdr!.Status).IsEqualTo(AdrStatus.Rejected);
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Reject_FromAccepted_Throws()
+    {
+        var repository = CreateRepository(id: 95);
+        var acceptedAdr = CreateAdr(number: 6, title: "Use gRPC", slug: "use-grpc", status: AdrStatus.Accepted);
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([acceptedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        Exception? exception = null;
+        try
+        {
+            _ = await service.TransitionAdrAsync(repository.Id, acceptedAdr.Number, AdrTransitionAction.Reject, supersededByNumber: null, CancellationToken.None);
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception is InvalidOperationException).IsTrue();
+        await Assert.That(exception!.Message.Contains("proposed", StringComparison.OrdinalIgnoreCase)).IsTrue();
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Supersede_FromAccepted_UpdatesStatusAndSupersededBy()
+    {
+        var repository = CreateRepository(id: 96);
+        var acceptedAdr = CreateAdr(number: 18, title: "Use Elastic", slug: "use-elastic", status: AdrStatus.Accepted);
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([acceptedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        var result = await service.TransitionAdrAsync(repository.Id, acceptedAdr.Number, AdrTransitionAction.Supersede, supersededByNumber: 25, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Adr.Status).IsEqualTo(AdrStatus.Superseded);
+        await Assert.That(result.Adr.SupersededByNumber).IsEqualTo(25);
+        await Assert.That(fileRepository.LastWrittenAdr).IsNotNull();
+        await Assert.That(fileRepository.LastWrittenAdr!.Status).IsEqualTo(AdrStatus.Superseded);
+        await Assert.That(fileRepository.LastWrittenAdr.SupersededByNumber).IsEqualTo(25);
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Supersede_RequiresPositiveTargetAdrNumber()
+    {
+        var repository = CreateRepository(id: 97);
+        var acceptedAdr = CreateAdr(number: 19, title: "Use RabbitMQ", slug: "use-rabbitmq", status: AdrStatus.Accepted);
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([acceptedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        Exception? exception = null;
+        try
+        {
+            _ = await service.TransitionAdrAsync(repository.Id, acceptedAdr.Number, AdrTransitionAction.Supersede, supersededByNumber: 0, CancellationToken.None);
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception is ArgumentException).IsTrue();
+        await Assert.That(exception!.Message.Contains("greater than zero", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(fileRepository.WriteCallCount).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Supersede_RejectsSelfReference()
+    {
+        var repository = CreateRepository(id: 98);
+        var acceptedAdr = CreateAdr(number: 20, title: "Use SQL Server", slug: "use-sql-server", status: AdrStatus.Accepted);
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([acceptedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        Exception? exception = null;
+        try
+        {
+            _ = await service.TransitionAdrAsync(repository.Id, acceptedAdr.Number, AdrTransitionAction.Supersede, supersededByNumber: acceptedAdr.Number, CancellationToken.None);
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception is ArgumentException).IsTrue();
+        await Assert.That(exception!.Message.Contains("different", StringComparison.OrdinalIgnoreCase)).IsTrue();
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Deprecate_FromAccepted_UpdatesStatus()
+    {
+        var repository = CreateRepository(id: 99);
+        var acceptedAdr = CreateAdr(number: 21, title: "Use XML", slug: "use-xml", status: AdrStatus.Accepted) with
+        {
+            SupersededByNumber = 29
+        };
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([acceptedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        var result = await service.TransitionAdrAsync(repository.Id, acceptedAdr.Number, AdrTransitionAction.Deprecate, supersededByNumber: null, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Adr.Status).IsEqualTo(AdrStatus.Deprecated);
+        await Assert.That(result.Adr.SupersededByNumber).IsNull();
+        await Assert.That(fileRepository.LastWrittenAdr).IsNotNull();
+        await Assert.That(fileRepository.LastWrittenAdr!.Status).IsEqualTo(AdrStatus.Deprecated);
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Deprecate_FromProposed_Throws()
+    {
+        var repository = CreateRepository(id: 100);
+        var proposedAdr = CreateAdr(number: 23, title: "Use FTP", slug: "use-ftp", status: AdrStatus.Proposed);
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([proposedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        Exception? exception = null;
+        try
+        {
+            _ = await service.TransitionAdrAsync(repository.Id, proposedAdr.Number, AdrTransitionAction.Deprecate, supersededByNumber: null, CancellationToken.None);
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception is InvalidOperationException).IsTrue();
+        await Assert.That(exception!.Message.Contains("accepted", StringComparison.OrdinalIgnoreCase)).IsTrue();
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_ReturnsNull_WhenRepositoryOrAdrMissing()
+    {
+        var repository = CreateRepository(id: 101);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var service = new AdrDocumentService(managedStore, factory, globalStore);
+
+        var missingAdrResult = await service.TransitionAdrAsync(repository.Id, number: 1, AdrTransitionAction.Accept, supersededByNumber: null, CancellationToken.None);
+        var missingRepositoryResult = await service.TransitionAdrAsync(repositoryId: 9999, number: 1, AdrTransitionAction.Accept, supersededByNumber: null, CancellationToken.None);
+
+        await Assert.That(missingAdrResult).IsNull();
+        await Assert.That(missingRepositoryResult).IsNull();
     }
 
     private static ManagedRepository CreateRepository(int id)
@@ -407,6 +755,68 @@ Updated decision details.
             GetNextNumberCallCount++;
             var nextNumber = store.Count is 0 ? 1 : store.Max(item => item.Number) + 1;
             return Task.FromResult(nextNumber);
+        }
+    }
+
+    private sealed class FakeGlobalAdrStore : IGlobalAdrStore
+    {
+        private readonly Dictionary<Guid, GlobalAdr> globalAdrs;
+        private readonly Dictionary<(Guid GlobalId, int RepositoryId, int LocalAdrNumber), GlobalAdrInstance> instances = [];
+
+        public FakeGlobalAdrStore(IEnumerable<GlobalAdr>? seedGlobalAdrs = null)
+        {
+            globalAdrs = (seedGlobalAdrs ?? [])
+                .ToDictionary(item => item.GlobalId);
+        }
+
+        public int AddCallCount { get; private set; }
+        public int UpsertCallCount { get; private set; }
+        public GlobalAdr? LastAddedGlobalAdr { get; private set; }
+        public GlobalAdrInstance? LastUpsertedInstance { get; private set; }
+
+        public Task<GlobalAdr?> GetByIdAsync(Guid globalId, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            _ = globalAdrs.TryGetValue(globalId, out var globalAdr);
+            return Task.FromResult(globalAdr);
+        }
+
+        public Task<GlobalAdr> AddAsync(GlobalAdr globalAdr, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(globalAdr);
+            ct.ThrowIfCancellationRequested();
+
+            AddCallCount++;
+            LastAddedGlobalAdr = globalAdr;
+            globalAdrs[globalAdr.GlobalId] = globalAdr;
+            return Task.FromResult(globalAdr);
+        }
+
+        public Task<GlobalAdrInstance> UpsertInstanceAsync(GlobalAdrInstance instance, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(instance);
+            ct.ThrowIfCancellationRequested();
+
+            UpsertCallCount++;
+            LastUpsertedInstance = instance;
+
+            var key = (instance.GlobalId, instance.RepositoryId, instance.LocalAdrNumber);
+            if (instances.TryGetValue(key, out var existing))
+            {
+                existing.RepoRelativePath = instance.RepoRelativePath;
+                existing.LastKnownStatus = instance.LastKnownStatus;
+                existing.BaseTemplateVersion = instance.BaseTemplateVersion;
+                existing.LastReviewedAtUtc = instance.LastReviewedAtUtc;
+                return Task.FromResult(existing);
+            }
+
+            if (instance.Id <= 0)
+            {
+                instance.Id = instances.Count + 1;
+            }
+
+            instances[key] = instance;
+            return Task.FromResult(instance);
         }
     }
 }

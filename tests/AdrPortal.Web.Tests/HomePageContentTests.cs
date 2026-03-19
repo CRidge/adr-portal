@@ -3,7 +3,7 @@ namespace AdrPortal.Web.Tests;
 public class HomePageContentTests
 {
     [Test]
-    public async Task HomePage_IncludesPhaseSixSignals()
+    public async Task HomePage_IncludesPhaseSevenSignals()
     {
         var repositoryRoot = ResolveRepositoryRoot();
         var homePagePath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "Home.razor");
@@ -11,8 +11,8 @@ public class HomePageContentTests
 
         var homeMarkup = await File.ReadAllTextAsync(normalizedPath);
 
-        await Assert.That(homeMarkup.Contains("Phase 6", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(homeMarkup.Contains("ADR create, edit, browse, and detail views are active", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Phase 7", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("ADR transitions and global registration are active", StringComparison.Ordinal)).IsTrue();
         await Assert.That(homeMarkup.Contains("/settings/repos", StringComparison.Ordinal)).IsTrue();
     }
 
@@ -53,7 +53,7 @@ public class HomePageContentTests
         await Assert.That(markup.Contains("shell__repo-list", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/repos/{repository.Id}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__repo-indicator", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(markup.Contains("Phase 6 ADR create and edit", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Phase 7 ADR transitions and registration", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
@@ -74,6 +74,10 @@ public class HomePageContentTests
         await Assert.That(detailMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/{Number:int}\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("state-badge", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Render(result.Value.Adr.RawMarkdown)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Lifecycle actions", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Accept ADR", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Mark superseded", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Mark deprecated", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/new\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/{Number:int}/edit\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("MADR markdown body", StringComparison.Ordinal)).IsTrue();
