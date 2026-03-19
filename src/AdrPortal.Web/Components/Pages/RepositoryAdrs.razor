@@ -1,6 +1,8 @@
 @page "/repos/{RepositoryId:int}"
+@inject AiBootstrapService AiBootstrapService
 @inject AdrDocumentService AdrDocumentService
 @inject AdrListViewService AdrListViewService
+@using AdrPortal.Core.Ai
 @using AdrPortal.Core.Entities
 @using AdrPortal.Web.Services
 
@@ -78,7 +80,116 @@ else
             </div>
         </div>
 
-        @if (projection.FilteredItems.Count is 0)
+        @if (projection.AllItems.Count is 0)
+        {
+            <div class="adr-bootstrap">
+                <h3>Empty repository ADR library</h3>
+                <p class="adr-bootstrap__lead">
+                    Bootstrap ADR proposals directly from this repository codebase. The generated drafts stay in <span class="state-badge proposed">proposed</span>
+                    status and queue Git/PR work for a later workflow phase.
+                </p>
+
+                @if (!string.IsNullOrWhiteSpace(bootstrapMessage))
+                {
+                    <p class="@GetBootstrapMessageCssClass()">@bootstrapMessage</p>
+                }
+
+                <button type="button"
+                        class="adr-bootstrap__primary"
+                        @onclick="GenerateBootstrapAsync"
+                        disabled="@IsBootstrapActionBusy()">
+                    @(isGeneratingProposals ? "Scanning codebase…" : "Bootstrap ADRs with AI")
+                </button>
+
+                @if (bootstrapProposalSet is not null)
+                {
+                    <div class="adr-bootstrap__summary">
+                        <span><strong>Scanned files:</strong> @bootstrapProposalSet.ScannedFileCount</span>
+                        <span><strong>Chunks:</strong> @bootstrapProposalSet.Chunks.Count</span>
+                        <span><strong>Proposals:</strong> @bootstrapProposalSet.Proposals.Count</span>
+                        <span><strong>Selected:</strong> @selectedProposalIds.Count</span>
+                    </div>
+
+                    @if (bootstrapProposalSet.Proposals.Count is 0)
+                    {
+                        <p class="adr-panel__empty">No bootstrap proposals were generated from the current repository content.</p>
+                    }
+                    else
+                    {
+                        <div class="adr-bootstrap__cards">
+                            @foreach (var proposal in bootstrapProposalSet.Proposals)
+                            {
+                                var isSelected = selectedProposalIds.Contains(proposal.ProposalId);
+                                <article class="adr-bootstrap-card @(isSelected ? "adr-bootstrap-card--selected" : string.Empty)">
+                                    <header class="adr-bootstrap-card__header">
+                                        <div>
+                                            <h4>@proposal.Title</h4>
+                                            <p><strong>Slug:</strong> @proposal.SuggestedSlug</p>
+                                        </div>
+                                        <button type="button"
+                                                class="adr-bootstrap-card__select"
+                                                @onclick="() => ToggleProposalSelection(proposal.ProposalId)"
+                                                disabled="@IsBootstrapActionBusy()">
+                                            @(isSelected ? "Selected" : "Select")
+                                        </button>
+                                    </header>
+                                    <p class="adr-bootstrap-card__problem">@proposal.ProblemStatement</p>
+                                    <p class="adr-bootstrap-card__meta"><strong>Confidence:</strong> @proposal.ConfidenceScore.ToString("0.00")</p>
+
+                                    @if (proposal.InitialOptions.Count > 0)
+                                    {
+                                        <div class="adr-bootstrap-card__section">
+                                            <strong>Initial options</strong>
+                                            <ul>
+                                                @foreach (var option in proposal.InitialOptions)
+                                                {
+                                                    <li>@option</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+
+                                    @if (proposal.EvidenceFiles.Count > 0)
+                                    {
+                                        <div class="adr-bootstrap-card__section">
+                                            <strong>Evidence files</strong>
+                                            <ul>
+                                                @foreach (var file in proposal.EvidenceFiles)
+                                                {
+                                                    <li><code>@file</code></li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                </article>
+                            }
+                        </div>
+
+                        <div class="adr-bootstrap__actions">
+                            <button type="button"
+                                    class="adr-bootstrap__primary"
+                                    @onclick="AcceptSelectedProposalsAsync"
+                                    disabled="@(!CanAcceptSelectedProposals())">
+                                @(isApplyingProposals ? "Writing ADR drafts…" : "Accept selected proposals")
+                            </button>
+                            <button type="button"
+                                    class="adr-bootstrap__secondary"
+                                    @onclick="SelectAllProposals"
+                                    disabled="@IsBootstrapActionBusy()">
+                                Select all
+                            </button>
+                            <button type="button"
+                                    class="adr-bootstrap__secondary"
+                                    @onclick="ClearSelection"
+                                    disabled="@IsBootstrapActionBusy()">
+                                Clear selection
+                            </button>
+                        </div>
+                    }
+                }
+            </div>
+        }
+        else if (projection.FilteredItems.Count is 0)
         {
             <p class="adr-panel__empty">No ADRs match the active search and filter criteria.</p>
         }
@@ -119,6 +230,12 @@ else
     private string? loadError;
     private AdrStatus? selectedStatus;
     private string searchTerm = string.Empty;
+    private AdrBootstrapProposalSet? bootstrapProposalSet;
+    private HashSet<string> selectedProposalIds = new(StringComparer.Ordinal);
+    private bool isGeneratingProposals;
+    private bool isApplyingProposals;
+    private string? bootstrapMessage;
+    private bool bootstrapMessageIsError;
 
     /// <summary>
     /// Loads repository ADR data for the requested route parameter.
@@ -131,6 +248,12 @@ else
         repositoryAdrs = [];
         selectedStatus = null;
         searchTerm = string.Empty;
+        bootstrapProposalSet = null;
+        selectedProposalIds = new HashSet<string>(StringComparer.Ordinal);
+        isGeneratingProposals = false;
+        isApplyingProposals = false;
+        bootstrapMessage = null;
+        bootstrapMessageIsError = false;
 
         try
         {
@@ -158,6 +281,10 @@ else
             loadError = exception.Message;
         }
         catch (IOException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (UnauthorizedAccessException exception)
         {
             loadError = exception.Message;
         }
@@ -204,6 +331,217 @@ else
     private void RebuildProjection()
     {
         projection = AdrListViewService.BuildList(repositoryAdrs, searchTerm, selectedStatus);
+    }
+
+    /// <summary>
+    /// Generates AI bootstrap proposals for an empty repository.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task GenerateBootstrapAsync()
+    {
+        if (repository is null || IsBootstrapActionBusy())
+        {
+            return;
+        }
+
+        isGeneratingProposals = true;
+        bootstrapMessage = null;
+        bootstrapMessageIsError = false;
+        try
+        {
+            bootstrapProposalSet = await AiBootstrapService.GenerateProposalSetAsync(RepositoryId, CancellationToken.None);
+            selectedProposalIds = bootstrapProposalSet.Proposals
+                .Select(proposal => proposal.ProposalId)
+                .ToHashSet(StringComparer.Ordinal);
+
+            bootstrapMessage = bootstrapProposalSet.Proposals.Count is 0
+                ? "No AI proposals were generated from the current repository scan."
+                : $"Generated {bootstrapProposalSet.Proposals.Count} proposal(s). Review and accept selected drafts.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        catch (DirectoryNotFoundException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        finally
+        {
+            isGeneratingProposals = false;
+        }
+    }
+
+    /// <summary>
+    /// Accepts selected AI proposals and writes proposed ADR markdown files.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task AcceptSelectedProposalsAsync()
+    {
+        if (repository is null || !CanAcceptSelectedProposals())
+        {
+            return;
+        }
+
+        isApplyingProposals = true;
+        bootstrapMessage = null;
+        bootstrapMessageIsError = false;
+
+        try
+        {
+            var result = await AiBootstrapService.AcceptSelectedProposalsAsync(
+                RepositoryId,
+                bootstrapProposalSet!,
+                selectedProposalIds.ToArray(),
+                CancellationToken.None);
+
+            bootstrapMessage = $"Created {result.CreatedAdrs.Count} proposed ADR(s). Queued {result.QueuedItems.Count} Git/PR workflow item(s).";
+            bootstrapProposalSet = null;
+            selectedProposalIds.Clear();
+            await ReloadRepositoryAdrsAsync();
+        }
+        catch (InvalidOperationException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        catch (DirectoryNotFoundException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            bootstrapMessageIsError = true;
+            bootstrapMessage = exception.Message;
+        }
+        finally
+        {
+            isApplyingProposals = false;
+        }
+    }
+
+    /// <summary>
+    /// Toggles proposal selection for review acceptance.
+    /// </summary>
+    /// <param name="proposalId">Proposal identifier.</param>
+    private void ToggleProposalSelection(string proposalId)
+    {
+        if (IsBootstrapActionBusy())
+        {
+            return;
+        }
+
+        if (selectedProposalIds.Contains(proposalId))
+        {
+            _ = selectedProposalIds.Remove(proposalId);
+            return;
+        }
+
+        _ = selectedProposalIds.Add(proposalId);
+    }
+
+    /// <summary>
+    /// Selects all current proposals.
+    /// </summary>
+    private void SelectAllProposals()
+    {
+        if (bootstrapProposalSet is null || IsBootstrapActionBusy())
+        {
+            return;
+        }
+
+        selectedProposalIds = bootstrapProposalSet.Proposals
+            .Select(proposal => proposal.ProposalId)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Clears current proposal selection.
+    /// </summary>
+    private void ClearSelection()
+    {
+        if (IsBootstrapActionBusy())
+        {
+            return;
+        }
+
+        selectedProposalIds.Clear();
+    }
+
+    /// <summary>
+    /// Reloads repository ADR values after bootstrap accept operations.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task ReloadRepositoryAdrsAsync()
+    {
+        var result = await AdrDocumentService.GetRepositoryWithAdrsAsync(RepositoryId, CancellationToken.None);
+        if (result is null)
+        {
+            throw new InvalidOperationException($"Repository '{RepositoryId}' was not found.");
+        }
+
+        repository = result.Value.Repository;
+        repositoryAdrs = result.Value.Adrs;
+        selectedStatus = null;
+        searchTerm = string.Empty;
+        RebuildProjection();
+    }
+
+    /// <summary>
+    /// Gets whether bootstrap actions are currently running.
+    /// </summary>
+    /// <returns><see langword="true"/> when busy; otherwise <see langword="false"/>.</returns>
+    private bool IsBootstrapActionBusy()
+    {
+        return isGeneratingProposals || isApplyingProposals;
+    }
+
+    /// <summary>
+    /// Gets whether selected proposals can be accepted.
+    /// </summary>
+    /// <returns><see langword="true"/> when acceptance is allowed.</returns>
+    private bool CanAcceptSelectedProposals()
+    {
+        return bootstrapProposalSet is not null
+            && selectedProposalIds.Count > 0
+            && !IsBootstrapActionBusy();
+    }
+
+    /// <summary>
+    /// Gets CSS class for bootstrap status messaging.
+    /// </summary>
+    /// <returns>Bootstrap status message CSS class.</returns>
+    private string GetBootstrapMessageCssClass()
+    {
+        return bootstrapMessageIsError ? "repo-status repo-status--error" : "repo-status";
     }
 
     /// <summary>

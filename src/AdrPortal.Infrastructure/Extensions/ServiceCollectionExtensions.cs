@@ -1,7 +1,11 @@
+using AdrPortal.Core.Ai;
 using AdrPortal.Core.Madr;
 using AdrPortal.Core.Repositories;
+using AdrPortal.Core.Workflows;
+using AdrPortal.Infrastructure.Ai;
 using AdrPortal.Infrastructure.Data;
 using AdrPortal.Infrastructure.Repositories;
+using AdrPortal.Infrastructure.Workflows;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +46,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGlobalAdrStore, GlobalAdrStore>();
         services.AddSingleton<IMadrParser, MadrParser>();
         services.AddSingleton<IMadrWriter, MadrWriter>();
+        services.AddSingleton<IAiService, DeterministicAiService>();
+        services.AddSingleton<IGitPrWorkflowQueue, InMemoryGitPrWorkflowQueue>();
 
         return services;
     }
