@@ -59,6 +59,125 @@ public sealed class DeterministicAiService : IAiService
     private const int MaximumPreviewCharacters = 360;
 
     /// <summary>
+    /// Evaluates a draft ADR and returns deterministic recommendation output.
+    /// </summary>
+    /// <param name="draftAdr">Draft ADR content under analysis.</param>
+    /// <param name="existingAdrs">Existing ADR corpus for grounding.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Deterministic recommendation record.</returns>
+    public Task<AdrEvaluationRecommendation> EvaluateAndRecommendAsync(
+        AdrDraftForAnalysis draftAdr,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(draftAdr);
+        ArgumentNullException.ThrowIfNull(existingAdrs);
+        ct.ThrowIfCancellationRequested();
+
+        var normalizedOptions = draftAdr.ConsideredOptions
+            .Where(option => !string.IsNullOrWhiteSpace(option))
+            .Select(option => option.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (normalizedOptions.Length is 0)
+        {
+            normalizedOptions =
+            [
+                "Retain current architecture with incremental improvements",
+                "Introduce focused platform standardization"
+            ];
+        }
+
+        var rankedOptions = normalizedOptions
+            .Select(option => new
+            {
+                Option = option,
+                Score = ScoreOption(option, existingAdrs, draftAdr)
+            })
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.Option, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var preferred = rankedOptions[0];
+        var optionRecommendations = rankedOptions
+            .Select(
+                item => new AdrOptionRecommendation
+                {
+                    OptionName = item.Option,
+                    Summary = BuildOptionSummary(item.Option),
+                    Score = item.Score,
+                    Rationale = BuildOptionRationale(item.Option, item.Score, existingAdrs, draftAdr),
+                    TradeOffs = BuildOptionTradeOffs(item.Option)
+                })
+            .ToArray();
+
+        var risks = BuildRecommendationRisks(draftAdr, existingAdrs);
+        var alternatives = BuildSuggestedAlternatives(preferred.Option, normalizedOptions);
+        var groundingNumbers = existingAdrs
+            .OrderBy(adr => adr.Number)
+            .Take(8)
+            .Select(adr => adr.Number)
+            .ToArray();
+
+        var recommendation = new AdrEvaluationRecommendation
+        {
+            PreferredOption = preferred.Option,
+            RecommendationSummary = $"Prefer '{preferred.Option}' based on deterministic alignment with existing ADR constraints.",
+            DecisionFit = BuildDecisionFit(existingAdrs, draftAdr),
+            Options = optionRecommendations,
+            Risks = risks,
+            SuggestedAlternatives = alternatives,
+            GroundingAdrNumbers = groundingNumbers,
+            IsFallback = true,
+            FallbackReason = "Configured deterministic AI provider."
+        };
+
+        return Task.FromResult(recommendation);
+    }
+
+    /// <summary>
+    /// Finds affected ADRs using deterministic lexical overlap analysis.
+    /// </summary>
+    /// <param name="draftAdr">Draft ADR content under analysis.</param>
+    /// <param name="existingAdrs">Existing ADR corpus for grounding.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Deterministic affected ADR result set.</returns>
+    public Task<AffectedAdrAnalysisResult> FindAffectedAdrsAsync(
+        AdrDraftForAnalysis draftAdr,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(draftAdr);
+        ArgumentNullException.ThrowIfNull(existingAdrs);
+        ct.ThrowIfCancellationRequested();
+
+        var draftTerms = BuildSignalTerms(draftAdr);
+        var affectedItems = existingAdrs
+            .Select(existing => BuildAffectedItem(existing, draftTerms))
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .OrderByDescending(item => item.ImpactLevel)
+            .ThenBy(item => item.AdrNumber)
+            .Take(10)
+            .ToArray();
+
+        var summary = affectedItems.Length is 0
+            ? "No directly affected ADRs identified by deterministic lexical overlap."
+            : $"Identified {affectedItems.Length} potentially affected ADR(s) using deterministic overlap signals.";
+
+        var result = new AffectedAdrAnalysisResult
+        {
+            Items = affectedItems,
+            Summary = summary,
+            IsFallback = true,
+            FallbackReason = "Configured deterministic AI provider."
+        };
+
+        return Task.FromResult(result);
+    }
+
+    /// <summary>
     /// Scans repository content and returns structured ADR bootstrap proposals.
     /// </summary>
     /// <param name="repoRootPath">Absolute repository root path.</param>
@@ -187,6 +306,173 @@ public sealed class DeterministicAiService : IAiService
     private static bool ContainsAny(string content, params string[] values)
     {
         return values.Any(value => content.Contains(value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static double ScoreOption(
+        string option,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
+        AdrDraftForAnalysis draftAdr)
+    {
+        var titleHits = existingAdrs.Count(adr => adr.Title.Contains(option, StringComparison.OrdinalIgnoreCase));
+        var driverHits = draftAdr.DecisionDrivers.Count(driver =>
+            option.Contains(driver, StringComparison.OrdinalIgnoreCase)
+            || driver.Contains(option, StringComparison.OrdinalIgnoreCase));
+        var normalized = 0.45 + Math.Min(0.25, titleHits * 0.08) + Math.Min(0.2, driverHits * 0.05);
+        var bounded = Math.Clamp(normalized, 0.05, 0.99);
+        return Math.Round(bounded, 2, MidpointRounding.AwayFromZero);
+    }
+
+    private static string BuildOptionSummary(string option)
+    {
+        return $"Option '{option}' emphasizes maintainable ADR consistency and controlled implementation risk.";
+    }
+
+    private static string BuildOptionRationale(
+        string option,
+        double score,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
+        AdrDraftForAnalysis draftAdr)
+    {
+        var comparableAdrs = existingAdrs
+            .Where(adr =>
+                adr.Title.Contains(option, StringComparison.OrdinalIgnoreCase)
+                || option.Contains(adr.Slug, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(adr => adr.Number)
+            .Take(3)
+            .Select(adr => $"ADR-{adr.Number:0000}")
+            .ToArray();
+
+        var grounding = comparableAdrs.Length is 0
+            ? "No close title match in existing ADRs."
+            : $"Grounded by {string.Join(", ", comparableAdrs)}.";
+
+        var driverCount = draftAdr.DecisionDrivers.Count;
+        return $"{grounding} Deterministic score {score:0.00} reflects alignment with {driverCount} decision driver(s).";
+    }
+
+    private static IReadOnlyList<string> BuildOptionTradeOffs(string option)
+    {
+        return
+        [
+            $"Requires explicit implementation scope for '{option}'.",
+            "May increase coordination overhead during rollout."
+        ];
+    }
+
+    private static IReadOnlyList<string> BuildRecommendationRisks(
+        AdrDraftForAnalysis draftAdr,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs)
+    {
+        var risks = new List<string>
+        {
+            "Deterministic fallback cannot evaluate nuanced architectural semantics from external model context."
+        };
+
+        if (draftAdr.ConsideredOptions.Count < 2)
+        {
+            risks.Add("Draft ADR has fewer than two considered options, reducing recommendation confidence.");
+        }
+
+        if (existingAdrs.Count is 0)
+        {
+            risks.Add("No existing ADR corpus available for contextual grounding.");
+        }
+
+        return risks;
+    }
+
+    private static IReadOnlyList<string> BuildSuggestedAlternatives(string preferredOption, IReadOnlyList<string> options)
+    {
+        var alternatives = options
+            .Where(option => !string.Equals(option, preferredOption, StringComparison.OrdinalIgnoreCase))
+            .Take(3)
+            .ToList();
+        if (alternatives.Count is 0)
+        {
+            alternatives.Add("Delay decision until additional empirical constraints are documented.");
+        }
+
+        return alternatives;
+    }
+
+    private static string BuildDecisionFit(
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
+        AdrDraftForAnalysis draftAdr)
+    {
+        if (existingAdrs.Count is 0)
+        {
+            return "No existing ADRs were available, so recommendation fit is based on draft content only.";
+        }
+
+        var acceptedCount = existingAdrs.Count(adr => adr.Status is AdrPortal.Core.Entities.AdrStatus.Accepted);
+        return $"Existing corpus includes {existingAdrs.Count} ADR(s), with {acceptedCount} accepted baseline decision(s), informing recommendation fit.";
+    }
+
+    private static HashSet<string> BuildSignalTerms(AdrDraftForAnalysis draftAdr)
+    {
+        var values = new[]
+        {
+            draftAdr.Title,
+            draftAdr.Slug,
+            draftAdr.ProblemStatement,
+            draftAdr.BodyMarkdown,
+            string.Join(' ', draftAdr.DecisionDrivers),
+            string.Join(' ', draftAdr.ConsideredOptions)
+        };
+
+        var terms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var value in values)
+        {
+            var normalized = NormalizeContent(value ?? string.Empty);
+            foreach (var token in normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (token.Length < 4)
+                {
+                    continue;
+                }
+
+                terms.Add(token);
+            }
+        }
+
+        return terms;
+    }
+
+    private static AffectedAdrResultItem? BuildAffectedItem(
+        AdrPortal.Core.Entities.Adr existingAdr,
+        ISet<string> draftTerms)
+    {
+        var existingText = NormalizeContent($"{existingAdr.Title} {existingAdr.Slug} {existingAdr.RawMarkdown}");
+        var tokens = existingText
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(token => token.Length >= 4)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var matches = tokens
+            .Where(token => draftTerms.Contains(token))
+            .Take(5)
+            .ToArray();
+
+        if (matches.Length is 0)
+        {
+            return null;
+        }
+
+        var level = matches.Length >= 4
+            ? AdrImpactLevel.High
+            : matches.Length >= 2
+                ? AdrImpactLevel.Medium
+                : AdrImpactLevel.Low;
+
+        return new AffectedAdrResultItem
+        {
+            AdrNumber = existingAdr.Number,
+            Title = existingAdr.Title,
+            ImpactLevel = level,
+            Rationale = $"Detected {matches.Length} shared signal(s): {string.Join(", ", matches)}.",
+            Signals = matches
+        };
     }
 
     private static IReadOnlyList<AdrDraftProposal> BuildProposals(

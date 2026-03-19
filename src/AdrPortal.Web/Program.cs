@@ -16,6 +16,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<RepositoryCatalogState>();
 builder.Services.AddScoped<IMadrRepositoryFactory, MadrRepositoryFactory>();
 builder.Services.AddScoped<AdrDocumentService>();
+builder.Services.AddScoped<AdrAiAssistantService>();
 builder.Services.AddScoped<GlobalLibraryService>();
 builder.Services.AddScoped<AiBootstrapService>();
 builder.Services.AddScoped<IInboxImportService, InboxImportService>();

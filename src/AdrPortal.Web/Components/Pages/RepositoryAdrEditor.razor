@@ -1,7 +1,9 @@
 @page "/repos/{RepositoryId:int}/adr/new"
 @page "/repos/{RepositoryId:int}/adr/{Number:int}/edit"
 @inject AdrDocumentService AdrDocumentService
+@inject AdrAiAssistantService AdrAiAssistantService
 @using AdrPortal.Core.Entities
+@using AdrPortal.Core.Ai
 @using AdrPortal.Web.Services
 
 <PageTitle>@GetPageTitle()</PageTitle>
@@ -137,8 +139,79 @@ else
                 <button type="button" class="adr-editor__button" @onclick="ResetAsync" disabled="@isSaving">
                     Reset
                 </button>
+                <button type="button"
+                        class="adr-editor__button adr-editor__button--analysis"
+                        @onclick="EvaluateAndRecommendAsync"
+                        disabled="@(isSaving || isEvaluatingRecommendation || editContext is null)">
+                    @(isEvaluatingRecommendation ? "Evaluating..." : "Evaluate & Recommend")
+                </button>
             </div>
         </EditForm>
+
+        @if (!string.IsNullOrWhiteSpace(recommendationMessage))
+        {
+            <p class="@(recommendationIsError ? "repo-status repo-status--error" : "repo-status")">@recommendationMessage</p>
+        }
+
+        @if (recommendation is not null)
+        {
+            <section class="adr-editor-ai">
+                <h3>AI recommendation</h3>
+                <p><strong>Preferred option:</strong> @recommendation.PreferredOption</p>
+                <p>@recommendation.RecommendationSummary</p>
+                <p class="adr-editor-ai__fit">@recommendation.DecisionFit</p>
+                @if (recommendation.IsFallback)
+                {
+                    <p class="adr-editor-ai__fallback">
+                        Deterministic fallback active
+                        @if (!string.IsNullOrWhiteSpace(recommendation.FallbackReason))
+                        {
+                            <span>· @recommendation.FallbackReason</span>
+                        }
+                    </p>
+                }
+                @if (recommendation.Options.Count > 0)
+                {
+                    <div class="adr-editor-ai__section">
+                        <h4>Ranked options</h4>
+                        <ul>
+                            @foreach (var option in recommendation.Options)
+                            {
+                                <li>
+                                    <strong>@option.OptionName</strong>
+                                    <span> (score @option.Score.ToString("0.00"))</span>
+                                    <p>@option.Rationale</p>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+                @if (recommendation.Risks.Count > 0)
+                {
+                    <div class="adr-editor-ai__section">
+                        <h4>Risks</h4>
+                        <ul>
+                            @foreach (var risk in recommendation.Risks)
+                            {
+                                <li>@risk</li>
+                            }
+                        </ul>
+                    </div>
+                }
+                @if (recommendation.SuggestedAlternatives.Count > 0)
+                {
+                    <div class="adr-editor-ai__section">
+                        <h4>Suggested alternatives</h4>
+                        <ul>
+                            @foreach (var alternative in recommendation.SuggestedAlternatives)
+                            {
+                                <li>@alternative</li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </section>
+        }
     </section>
 }
 
@@ -168,6 +241,10 @@ else
     private string? loadError;
     private string? statusMessage;
     private bool statusIsError;
+    private AdrEvaluationRecommendation? recommendation;
+    private string? recommendationMessage;
+    private bool recommendationIsError;
+    private bool isEvaluatingRecommendation;
 
     /// <summary>
     /// Loads repository and ADR values required by create/edit routes.
@@ -182,6 +259,10 @@ else
         editContext = null;
         isSaving = false;
         isCreateMode = !Number.HasValue;
+        recommendation = null;
+        recommendationMessage = null;
+        recommendationIsError = false;
+        isEvaluatingRecommendation = false;
 
         try
         {
@@ -246,6 +327,9 @@ else
         isSaving = true;
         statusMessage = null;
         statusIsError = false;
+        recommendation = null;
+        recommendationMessage = null;
+        recommendationIsError = false;
 
         try
         {
@@ -311,7 +395,78 @@ else
         editContext = new EditContext(editorModel);
         statusMessage = "Editor reset to loaded values.";
         statusIsError = false;
+        recommendation = null;
+        recommendationMessage = null;
+        recommendationIsError = false;
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Runs AI recommendation analysis for the current draft values.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task EvaluateAndRecommendAsync()
+    {
+        if (isSaving || isEvaluatingRecommendation || editContext is null)
+        {
+            return;
+        }
+
+        recommendation = null;
+        recommendationMessage = null;
+        recommendationIsError = false;
+
+        var isValid = editContext.Validate();
+        if (!isValid)
+        {
+            recommendationIsError = true;
+            recommendationMessage = "Fix validation errors before running AI evaluation.";
+            return;
+        }
+
+        isEvaluatingRecommendation = true;
+        try
+        {
+            var result = await AdrAiAssistantService.EvaluateAndRecommendAsync(
+                RepositoryId,
+                Number,
+                editorModel.ToInput(),
+                CancellationToken.None);
+
+            if (result is null)
+            {
+                recommendationIsError = true;
+                recommendationMessage = $"Repository '{RepositoryId}' was not found.";
+                return;
+            }
+
+            recommendation = result;
+            recommendationMessage = "AI recommendation generated.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            recommendationIsError = true;
+            recommendationMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            recommendationIsError = true;
+            recommendationMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            recommendationIsError = true;
+            recommendationMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            recommendationIsError = true;
+            recommendationMessage = exception.Message;
+        }
+        finally
+        {
+            isEvaluatingRecommendation = false;
+        }
     }
 
     /// <summary>
