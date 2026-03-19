@@ -69,5 +69,6 @@ Chosen option: "`Microsoft.Extensions.AI` abstraction + GitHub Copilot SDK as de
 ## More Information
 
 * [ADR-0011: Microsoft.Extensions.AI as AI Provider Abstraction](adr-0011-microsoft-extensions-ai-abstraction.md)
-* [ADR-0001: Blazor on .NET 10](adr-0001-blazor-dotnet10-framework.md)
+* [ADR-0001: .NET 10 Runtime](adr-0001-dotnet10-runtime.md)
+* [ADR-0013: Blazor Interactive Server](adr-0013-blazor-interactive-server.md)
 * [Microsoft.Extensions.AI abstractions](https://learn.microsoft.com/en-us/dotnet/ai/microsoft-extensions-ai)

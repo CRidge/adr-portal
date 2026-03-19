@@ -65,4 +65,5 @@ Chosen option: "NuGet Central Package Management (`Directory.Packages.props`)", 
 ## More Information
 
 * [Central Package Management — Microsoft Learn](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management)
-* [ADR-0001: Blazor on .NET 10](adr-0001-blazor-dotnet10-framework.md)
+* [ADR-0001: .NET 10 Runtime](adr-0001-dotnet10-runtime.md)
+* [ADR-0013: Blazor Interactive Server](adr-0013-blazor-interactive-server.md)

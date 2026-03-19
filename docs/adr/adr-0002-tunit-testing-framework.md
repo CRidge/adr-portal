@@ -67,6 +67,7 @@ Chosen option: "TUnit", because it is mandated by the project specification and 
 
 ## More Information
 
-* [ADR-0001: Blazor on .NET 10](adr-0001-blazor-dotnet10-framework.md)
+* [ADR-0001: .NET 10 Runtime](adr-0001-dotnet10-runtime.md)
+* [ADR-0013: Blazor Interactive Server](adr-0013-blazor-interactive-server.md)
 * [ADR-0003: NuGet Central Package Management](adr-0003-nuget-central-package-management.md)
 * [TUnit documentation](https://tunit.dev)
