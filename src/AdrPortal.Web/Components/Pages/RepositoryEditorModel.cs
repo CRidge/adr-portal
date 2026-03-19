@@ -36,7 +36,7 @@ public sealed class RepositoryEditorModel
     /// </summary>
     [Required]
     [StringLength(2048)]
-    public string? GitRemoteUrl { get; set; } = string.Empty;
+    public string GitRemoteUrl { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets whether the repository should be active.
