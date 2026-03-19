@@ -83,6 +83,48 @@
     color: var(--app-muted);
 }
 
+.shell__repositories {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.shell__repositories-title {
+    margin: 0;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--app-muted);
+}
+
+.shell__repo-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.shell__repo-item {
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--app-border);
+    border-radius: 0.55rem;
+    background-color: var(--app-surface-muted);
+}
+
+.shell__repo-name {
+    margin: 0;
+    font-weight: 600;
+    color: var(--app-heading);
+}
+
+.shell__repo-meta {
+    margin: 0.15rem 0 0 0;
+    font-size: 0.82rem;
+    color: var(--app-muted);
+}
+
 .shell__content {
     min-width: 0;
     padding: 1.5rem;

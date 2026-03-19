@@ -1,5 +1,7 @@
 using AdrPortal.Core.Madr;
+using AdrPortal.Core.Repositories;
 using AdrPortal.Infrastructure.Data;
+using AdrPortal.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,6 +38,7 @@ public static class ServiceCollectionExtensions
             options.UseSqlite(connectionString);
         });
 
+        services.AddScoped<IManagedRepositoryStore, ManagedRepositoryStore>();
         services.AddSingleton<IMadrParser, MadrParser>();
         services.AddSingleton<IMadrWriter, MadrWriter>();
 

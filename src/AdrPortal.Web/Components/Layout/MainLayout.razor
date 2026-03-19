@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject RepositoryCatalogState RepositoryCatalogState
 
 <div class="shell">
     <header class="shell__header">
@@ -6,19 +8,38 @@
             <span class="brand__dot" aria-hidden="true"></span>
             <span class="brand__name">ADR Portal</span>
         </div>
-        <span class="shell__status">Phase 1 scaffold</span>
+        <span class="shell__status">Phase 4 repository management</span>
     </header>
 
     <div class="shell__body">
         <aside class="shell__sidebar">
             <nav class="shell__nav" aria-label="Primary navigation">
-                <a class="shell__nav-link" href="/">Overview</a>
-                <a class="shell__nav-link" href="/not-found">Repository management (coming soon)</a>
+                <NavLink class="shell__nav-link" href="/" Match="NavLinkMatch.All">Overview</NavLink>
+                <NavLink class="shell__nav-link" href="/settings/repos">Repository settings</NavLink>
                 <a class="shell__nav-link" href="/not-found">ADR workflows (coming soon)</a>
             </nav>
-            <p class="shell__hint">
-                Core platform pieces are now in place. Feature pages and workflows are added in later phases.
-            </p>
+
+            <section class="shell__repositories" aria-label="Managed repositories">
+                <h2 class="shell__repositories-title">Repositories</h2>
+                @if (RepositoryCatalogState.Repositories.Count is 0)
+                {
+                    <p class="shell__hint">
+                        No repositories configured yet.
+                    </p>
+                }
+                else
+                {
+                    <ul class="shell__repo-list">
+                        @foreach (var repository in RepositoryCatalogState.Repositories)
+                        {
+                            <li class="shell__repo-item">
+                                <p class="shell__repo-name">@repository.DisplayName</p>
+                                <p class="shell__repo-meta">@repository.AdrFolder</p>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
         </aside>
 
         <main class="shell__content" role="main">
@@ -32,3 +53,32 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code
+{
+    /// <summary>
+    /// Subscribes to repository list updates and loads initial data.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    protected override async Task OnInitializedAsync()
+    {
+        RepositoryCatalogState.Changed += HandleRepositoryCatalogChanged;
+        await RepositoryCatalogState.RefreshAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Releases event subscriptions owned by the layout.
+    /// </summary>
+    public void Dispose()
+    {
+        RepositoryCatalogState.Changed -= HandleRepositoryCatalogChanged;
+    }
+
+    /// <summary>
+    /// Refreshes layout rendering when repository list changes.
+    /// </summary>
+    private void HandleRepositoryCatalogChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+}

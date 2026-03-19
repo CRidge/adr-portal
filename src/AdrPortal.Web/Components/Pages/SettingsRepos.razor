@@ -1,0 +1,358 @@
+@page "/settings/repos"
+@inject IManagedRepositoryStore ManagedRepositoryStore
+@inject RepositoryCatalogState RepositoryCatalogState
+
+<PageTitle>Repository settings</PageTitle>
+
+<section class="panel repo-settings">
+    <p class="eyebrow">Settings</p>
+    <h1>Managed repositories</h1>
+    <p class="lead">
+        Add, edit, and remove repositories used by ADR Portal. Changes are stored in SQLite through EF Core.
+    </p>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <p class="@GetStatusClass()">@statusMessage</p>
+    }
+
+    <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <fieldset class="repo-settings__fieldset">
+            <legend class="repo-settings__legend">@GetEditorHeading()</legend>
+
+            <div class="repo-settings__field">
+                <label class="repo-settings__label" for="repo-name">Display name</label>
+                <InputText id="repo-name" class="repo-settings__input" @bind-Value="editorModel.DisplayName" />
+                <ValidationMessage For="() => editorModel.DisplayName" />
+            </div>
+
+            <div class="repo-settings__field">
+                <label class="repo-settings__label" for="repo-root">Root path</label>
+                <InputText id="repo-root" class="repo-settings__input" @bind-Value="editorModel.RootPath" />
+                <ValidationMessage For="() => editorModel.RootPath" />
+            </div>
+
+            <div class="repo-settings__field">
+                <label class="repo-settings__label" for="repo-adr-folder">ADR folder</label>
+                <InputText id="repo-adr-folder" class="repo-settings__input" @bind-Value="editorModel.AdrFolder" />
+                <ValidationMessage For="() => editorModel.AdrFolder" />
+            </div>
+
+            <div class="repo-settings__field">
+                <label class="repo-settings__label" for="repo-inbox">Inbox folder (optional)</label>
+                <InputText id="repo-inbox" class="repo-settings__input" @bind-Value="editorModel.InboxFolder" />
+                <ValidationMessage For="() => editorModel.InboxFolder" />
+            </div>
+
+            <div class="repo-settings__field">
+                <label class="repo-settings__label" for="repo-remote">Git remote URL (optional)</label>
+                <InputText id="repo-remote" class="repo-settings__input" @bind-Value="editorModel.GitRemoteUrl" />
+                <ValidationMessage For="() => editorModel.GitRemoteUrl" />
+            </div>
+
+            <label class="repo-settings__checkbox">
+                <InputCheckbox @bind-Value="editorModel.IsActive" />
+                <span>Repository is active</span>
+            </label>
+        </fieldset>
+
+        <div class="repo-settings__actions">
+            <button type="submit" class="repo-settings__button repo-settings__button--primary">
+                @GetSaveButtonLabel()
+            </button>
+            <button type="button" class="repo-settings__button" @onclick="ResetEditor" disabled="@isSaving">
+                Reset
+            </button>
+        </div>
+    </EditForm>
+</section>
+
+<section class="panel repo-settings repo-settings--list">
+    <h2>Configured repositories</h2>
+
+    @if (repositories.Count is 0)
+    {
+        <p class="shell__hint">No repositories configured.</p>
+    }
+    else
+    {
+        <table class="repo-settings__table">
+            <thead>
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Root path</th>
+                    <th scope="col">ADR folder</th>
+                    <th scope="col">Active</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var repository in repositories)
+                {
+                    <tr>
+                        <td>@repository.DisplayName</td>
+                        <td>@repository.RootPath</td>
+                        <td>@repository.AdrFolder</td>
+                        <td>@(repository.IsActive ? "Yes" : "No")</td>
+                        <td class="repo-settings__row-actions">
+                            <button type="button" class="repo-settings__button" @onclick="() => BeginEdit(repository)" disabled="@isSaving">
+                                Edit
+                            </button>
+                            <button type="button" class="repo-settings__button repo-settings__button--danger" @onclick="() => DeleteAsync(repository.Id)" disabled="@isSaving">
+                                Remove
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@code
+{
+    private readonly RepositoryEditorModel editorModel = new();
+    private EditContext editContext = default!;
+    private IReadOnlyList<ManagedRepository> repositories = [];
+    private int? editingRepositoryId;
+    private bool isSaving;
+    private string? statusMessage;
+    private bool statusIsError;
+
+    /// <summary>
+    /// Loads repository data and initializes the edit context.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    protected override async Task OnInitializedAsync()
+    {
+        InitializeEditor();
+        await LoadRepositoriesAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Saves the editor form as either a new repository or an update to an existing repository.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task SaveAsync()
+    {
+        if (isSaving)
+        {
+            return;
+        }
+
+        isSaving = true;
+        statusMessage = null;
+        statusIsError = false;
+
+        try
+        {
+            if (editingRepositoryId is int repositoryId)
+            {
+                var updatedRepository = new ManagedRepository
+                {
+                    Id = repositoryId,
+                    DisplayName = editorModel.DisplayName.Trim(),
+                    RootPath = editorModel.RootPath.Trim(),
+                    AdrFolder = editorModel.AdrFolder.Trim(),
+                    InboxFolder = NormalizeOptional(editorModel.InboxFolder),
+                    GitRemoteUrl = NormalizeOptional(editorModel.GitRemoteUrl),
+                    IsActive = editorModel.IsActive,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow
+                };
+
+                var result = await ManagedRepositoryStore.UpdateAsync(updatedRepository, CancellationToken.None);
+                if (result is null)
+                {
+                    statusIsError = true;
+                    statusMessage = "Unable to update repository because it no longer exists.";
+                }
+                else
+                {
+                    statusMessage = $"Updated '{result.DisplayName}'.";
+                    editingRepositoryId = null;
+                    InitializeEditor();
+                }
+            }
+            else
+            {
+                var createdRepository = new ManagedRepository
+                {
+                    DisplayName = editorModel.DisplayName.Trim(),
+                    RootPath = editorModel.RootPath.Trim(),
+                    AdrFolder = editorModel.AdrFolder.Trim(),
+                    InboxFolder = NormalizeOptional(editorModel.InboxFolder),
+                    GitRemoteUrl = NormalizeOptional(editorModel.GitRemoteUrl),
+                    IsActive = editorModel.IsActive,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow
+                };
+
+                var result = await ManagedRepositoryStore.AddAsync(createdRepository, CancellationToken.None);
+                statusMessage = $"Added '{result.DisplayName}'.";
+                InitializeEditor();
+            }
+
+            await LoadRepositoriesAsync(CancellationToken.None);
+            await RepositoryCatalogState.RefreshAsync(CancellationToken.None);
+        }
+        catch (Exception)
+        {
+            statusIsError = true;
+            statusMessage = "Unable to save repository. Verify values and try again.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    /// <summary>
+    /// Loads a repository into the form for editing.
+    /// </summary>
+    /// <param name="repository">Repository selected for editing.</param>
+    private void BeginEdit(ManagedRepository repository)
+    {
+        if (isSaving)
+        {
+            return;
+        }
+
+        editingRepositoryId = repository.Id;
+        editorModel.DisplayName = repository.DisplayName;
+        editorModel.RootPath = repository.RootPath;
+        editorModel.AdrFolder = repository.AdrFolder;
+        editorModel.InboxFolder = repository.InboxFolder;
+        editorModel.GitRemoteUrl = repository.GitRemoteUrl;
+        editorModel.IsActive = repository.IsActive;
+        editContext = new EditContext(editorModel);
+        statusMessage = $"Editing '{repository.DisplayName}'.";
+        statusIsError = false;
+    }
+
+    /// <summary>
+    /// Deletes a repository by identifier.
+    /// </summary>
+    /// <param name="repositoryId">Identifier to delete.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task DeleteAsync(int repositoryId)
+    {
+        if (isSaving)
+        {
+            return;
+        }
+
+        isSaving = true;
+        statusMessage = null;
+        statusIsError = false;
+        try
+        {
+            var removed = await ManagedRepositoryStore.DeleteAsync(repositoryId, CancellationToken.None);
+            if (!removed)
+            {
+                statusIsError = true;
+                statusMessage = "Unable to remove repository because it was not found.";
+                return;
+            }
+
+            if (editingRepositoryId == repositoryId)
+            {
+                editingRepositoryId = null;
+                InitializeEditor();
+            }
+
+            statusMessage = "Repository removed.";
+            await LoadRepositoriesAsync(CancellationToken.None);
+            await RepositoryCatalogState.RefreshAsync(CancellationToken.None);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    /// <summary>
+    /// Resets the editor fields to default values for adding a repository.
+    /// </summary>
+    private void ResetEditor()
+    {
+        if (isSaving)
+        {
+            return;
+        }
+
+        editingRepositoryId = null;
+        InitializeEditor();
+    }
+
+    /// <summary>
+    /// Initializes the editor model with add-mode defaults.
+    /// </summary>
+    private void InitializeEditor()
+    {
+        editorModel.DisplayName = string.Empty;
+        editorModel.RootPath = string.Empty;
+        editorModel.AdrFolder = "docs/adr";
+        editorModel.InboxFolder = null;
+        editorModel.GitRemoteUrl = null;
+        editorModel.IsActive = true;
+
+        editContext = new EditContext(editorModel);
+    }
+
+    /// <summary>
+    /// Loads repositories from persistence.
+    /// </summary>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task LoadRepositoriesAsync(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        repositories = await ManagedRepositoryStore.GetAllAsync(ct);
+    }
+
+    /// <summary>
+    /// Gets the heading shown above the editor form.
+    /// </summary>
+    /// <returns>Heading text.</returns>
+    private string GetEditorHeading()
+    {
+        return editingRepositoryId is null ? "Add repository" : "Edit repository";
+    }
+
+    /// <summary>
+    /// Gets the save button text for add or edit mode.
+    /// </summary>
+    /// <returns>Button label text.</returns>
+    private string GetSaveButtonLabel()
+    {
+        return editingRepositoryId is null ? "Add repository" : "Save changes";
+    }
+
+    /// <summary>
+    /// Gets CSS class for status messaging based on severity.
+    /// </summary>
+    /// <returns>Status message CSS class.</returns>
+    private string GetStatusClass()
+    {
+        return statusIsError ? "repo-settings__status repo-settings__status--error" : "repo-settings__status";
+    }
+
+    /// <summary>
+    /// Normalizes optional string inputs to null when empty.
+    /// </summary>
+    /// <param name="value">Input value.</param>
+    /// <returns>Trimmed value or <see langword="null"/>.</returns>
+    private static string? NormalizeOptional(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim();
+    }
+}
