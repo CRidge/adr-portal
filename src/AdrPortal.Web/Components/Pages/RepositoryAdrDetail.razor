@@ -47,6 +47,11 @@ else
             <span class="state-badge @detail.StatusView.CssModifier">@detail.StatusView.Label</span>
         </header>
 
+        @if (!string.IsNullOrWhiteSpace(transitionMessage))
+        {
+            <p class="@(transitionIsError ? "repo-status repo-status--error" : "repo-status")">@transitionMessage</p>
+        }
+
         <section class="adr-detail__meta">
             <div class="adr-detail__meta-item">
                 <p>Status</p>
@@ -74,6 +79,54 @@ else
             </div>
         </section>
 
+        @if (detail.Status is AdrStatus.Proposed or AdrStatus.Accepted)
+        {
+            <section class="adr-detail__transitions">
+                <h3>Lifecycle actions</h3>
+
+                @if (detail.Status is AdrStatus.Proposed)
+                {
+                    <div class="adr-detail__transition-row">
+                        <button type="button"
+                                class="adr-detail__button adr-detail__button--accept"
+                                @onclick="() => ApplyTransitionAsync(AdrTransitionAction.Accept)"
+                                disabled="@isApplyingTransition">
+                            Accept ADR
+                        </button>
+                        <button type="button"
+                                class="adr-detail__button adr-detail__button--reject"
+                                @onclick="() => ApplyTransitionAsync(AdrTransitionAction.Reject)"
+                                disabled="@isApplyingTransition">
+                            Reject ADR
+                        </button>
+                    </div>
+                }
+                else if (detail.Status is AdrStatus.Accepted)
+                {
+                    <div class="adr-detail__transition-row">
+                        <label for="supersede-target">Superseded by ADR number</label>
+                        <InputNumber id="supersede-target"
+                                     class="adr-detail__supersede-input"
+                                     @bind-Value="supersedeTargetNumber" />
+                        <button type="button"
+                                class="adr-detail__button adr-detail__button--supersede"
+                                @onclick="() => ApplyTransitionAsync(AdrTransitionAction.Supersede)"
+                                disabled="@isApplyingTransition">
+                            Mark superseded
+                        </button>
+                    </div>
+                    <div class="adr-detail__transition-row">
+                        <button type="button"
+                                class="adr-detail__button adr-detail__button--deprecate"
+                                @onclick="() => ApplyTransitionAsync(AdrTransitionAction.Deprecate)"
+                                disabled="@isApplyingTransition">
+                            Mark deprecated
+                        </button>
+                    </div>
+                }
+            </section>
+        }
+
         @if (detail.SupersededByNumber is int supersededByNumber)
         {
             <p class="repo-status">
@@ -98,6 +151,10 @@ else
     private ManagedRepository? repository;
     private AdrDetailViewModel? detail;
     private string? loadError;
+    private string? transitionMessage;
+    private bool transitionIsError;
+    private bool isApplyingTransition;
+    private int? supersedeTargetNumber;
 
     /// <summary>
     /// Loads repository and ADR detail values for the requested route.
@@ -108,6 +165,10 @@ else
         loadError = null;
         repository = null;
         detail = null;
+        transitionMessage = null;
+        transitionIsError = false;
+        isApplyingTransition = false;
+        supersedeTargetNumber = null;
 
         try
         {
@@ -120,10 +181,88 @@ else
 
             repository = result.Value.Repository;
             detail = AdrListViewService.BuildDetail(result.Value.Adr, AdrMarkdownRenderer.Render(result.Value.Adr.RawMarkdown));
+            supersedeTargetNumber = detail.SupersededByNumber;
         }
-        catch (Exception)
+        catch (InvalidOperationException exception)
         {
-            loadError = "Unable to load ADR detail. Verify repository settings and ADR markdown validity.";
+            loadError = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            loadError = exception.Message;
+        }
+    }
+
+    /// <summary>
+    /// Applies a lifecycle transition and refreshes detail state.
+    /// </summary>
+    /// <param name="action">Transition action to execute.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task ApplyTransitionAsync(AdrTransitionAction action)
+    {
+        if (detail is null || isApplyingTransition)
+        {
+            return;
+        }
+
+        transitionMessage = null;
+        transitionIsError = false;
+        isApplyingTransition = true;
+
+        try
+        {
+            var transitionResult = await AdrDocumentService.TransitionAdrAsync(
+                RepositoryId,
+                Number,
+                action,
+                supersedeTargetNumber,
+                CancellationToken.None);
+
+            if (transitionResult is null)
+            {
+                transitionIsError = true;
+                transitionMessage = $"ADR-{Number:0000} was not found for repository '{RepositoryId}'.";
+                return;
+            }
+
+            repository = transitionResult.Repository;
+            detail = AdrListViewService.BuildDetail(
+                transitionResult.Adr,
+                AdrMarkdownRenderer.Render(transitionResult.Adr.RawMarkdown));
+            supersedeTargetNumber = detail.SupersededByNumber;
+            transitionMessage = transitionResult.Message;
+        }
+        catch (InvalidOperationException exception)
+        {
+            transitionIsError = true;
+            transitionMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            transitionIsError = true;
+            transitionMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            transitionIsError = true;
+            transitionMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            transitionIsError = true;
+            transitionMessage = exception.Message;
+        }
+        finally
+        {
+            isApplyingTransition = false;
         }
     }
 

@@ -39,6 +39,7 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddScoped<IManagedRepositoryStore, ManagedRepositoryStore>();
+        services.AddScoped<IGlobalAdrStore, GlobalAdrStore>();
         services.AddSingleton<IMadrParser, MadrParser>();
         services.AddSingleton<IMadrWriter, MadrWriter>();
 

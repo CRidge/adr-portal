@@ -7,7 +7,10 @@ namespace AdrPortal.Web.Services;
 /// <summary>
 /// Resolves ADR data for managed repositories.
 /// </summary>
-public sealed class AdrDocumentService(IManagedRepositoryStore managedRepositoryStore, IMadrRepositoryFactory madrRepositoryFactory)
+public sealed class AdrDocumentService(
+    IManagedRepositoryStore managedRepositoryStore,
+    IMadrRepositoryFactory madrRepositoryFactory,
+    IGlobalAdrStore globalAdrStore)
 {
     private static readonly Regex SlugRegex = new(
         @"^[a-z0-9][a-z0-9-]*$",
@@ -153,6 +156,48 @@ public sealed class AdrDocumentService(IManagedRepositoryStore managedRepository
     }
 
     /// <summary>
+    /// Applies a lifecycle transition action to an ADR from the detail route.
+    /// </summary>
+    /// <param name="repositoryId">Repository identifier.</param>
+    /// <param name="number">ADR number.</param>
+    /// <param name="action">Transition action to apply.</param>
+    /// <param name="supersededByNumber">Optional superseding ADR number for supersede transitions.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>
+    /// Transition result when repository and ADR are found; otherwise <see langword="null"/>.
+    /// </returns>
+    public async Task<AdrTransitionResult?> TransitionAdrAsync(
+        int repositoryId,
+        int number,
+        AdrTransitionAction action,
+        int? supersededByNumber,
+        CancellationToken ct)
+    {
+        var resolvedRepository = await ResolveRepositoryAsync(repositoryId, ct);
+        if (resolvedRepository is null)
+        {
+            return null;
+        }
+
+        var (repository, adrRepository) = resolvedRepository.Value;
+        var existingAdr = await adrRepository.GetByNumberAsync(number, ct);
+        if (existingAdr is null)
+        {
+            return null;
+        }
+
+        var transition = await BuildTransitionAsync(repository, existingAdr, action, supersededByNumber, ct);
+        var persistedAdr = await adrRepository.WriteAsync(transition.Adr, ct);
+
+        return new AdrTransitionResult
+        {
+            Repository = repository,
+            Adr = persistedAdr,
+            Message = transition.Message
+        };
+    }
+
+    /// <summary>
     /// Resolves repository metadata and a file-backed ADR repository for the requested identifier.
     /// </summary>
     /// <param name="repositoryId">Repository identifier.</param>
@@ -211,6 +256,199 @@ public sealed class AdrDocumentService(IManagedRepositoryStore managedRepository
                 ? normalizedBody
                 : $"# {normalizedTitle}\n\n{normalizedBody}"
         };
+    }
+
+    /// <summary>
+    /// Builds and validates ADR transition output including persistence side effects.
+    /// </summary>
+    /// <param name="repository">Repository containing the ADR.</param>
+    /// <param name="existingAdr">Current ADR state.</param>
+    /// <param name="action">Requested transition action.</param>
+    /// <param name="supersededByNumber">Optional superseding ADR number.</param>
+    /// <param name="ct">Cancellation token for async store operations.</param>
+    /// <returns>Updated ADR and operation message.</returns>
+    private async Task<(Adr Adr, string Message)> BuildTransitionAsync(
+        ManagedRepository repository,
+        Adr existingAdr,
+        AdrTransitionAction action,
+        int? supersededByNumber,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        return action switch
+        {
+            AdrTransitionAction.Accept => await BuildAcceptTransitionAsync(repository, existingAdr, ct),
+            AdrTransitionAction.Reject => BuildRejectTransition(existingAdr),
+            AdrTransitionAction.Supersede => BuildSupersedeTransition(existingAdr, supersededByNumber),
+            AdrTransitionAction.Deprecate => BuildDeprecateTransition(existingAdr),
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unsupported transition action.")
+        };
+    }
+
+    /// <summary>
+    /// Applies accept transition rules and global library registration behavior.
+    /// </summary>
+    /// <param name="repository">Repository containing the ADR.</param>
+    /// <param name="existingAdr">Current ADR state.</param>
+    /// <param name="ct">Cancellation token for async store operations.</param>
+    /// <returns>Updated ADR and operation message.</returns>
+    private async Task<(Adr Adr, string Message)> BuildAcceptTransitionAsync(
+        ManagedRepository repository,
+        Adr existingAdr,
+        CancellationToken ct)
+    {
+        if (existingAdr.Status is not AdrStatus.Proposed)
+        {
+            throw new InvalidOperationException("Only proposed ADRs can be accepted.");
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        if (existingAdr.GlobalId is null)
+        {
+            var newGlobalId = Guid.NewGuid();
+            var newGlobalAdr = new GlobalAdr
+            {
+                GlobalId = newGlobalId,
+                Title = existingAdr.Title,
+                CurrentVersion = 1,
+                RegisteredAtUtc = nowUtc,
+                LastUpdatedAtUtc = nowUtc
+            };
+
+            _ = await globalAdrStore.AddAsync(newGlobalAdr, ct);
+            _ = await globalAdrStore.UpsertInstanceAsync(
+                new GlobalAdrInstance
+                {
+                    GlobalId = newGlobalId,
+                    RepositoryId = repository.Id,
+                    LocalAdrNumber = existingAdr.Number,
+                    RepoRelativePath = existingAdr.RepoRelativePath,
+                    LastKnownStatus = AdrStatus.Accepted,
+                    BaseTemplateVersion = 1,
+                    LastReviewedAtUtc = nowUtc
+                },
+                ct);
+
+            return (
+                existingAdr with
+                {
+                    Status = AdrStatus.Accepted,
+                    GlobalId = newGlobalId,
+                    GlobalVersion = 1,
+                    SupersededByNumber = null
+                },
+                $"ADR-{existingAdr.Number:0000} accepted and registered in the global library as v1.");
+        }
+
+        var globalAdr = await globalAdrStore.GetByIdAsync(existingAdr.GlobalId.Value, ct);
+        if (globalAdr is null)
+        {
+            throw new InvalidOperationException(
+                $"Global ADR '{existingAdr.GlobalId}' is not registered. Re-link before accepting this ADR.");
+        }
+
+        var baseVersion = existingAdr.GlobalVersion ?? globalAdr.CurrentVersion;
+        if (baseVersion < 1)
+        {
+            throw new InvalidOperationException("Global ADR version must be greater than zero.");
+        }
+
+        _ = await globalAdrStore.UpsertInstanceAsync(
+            new GlobalAdrInstance
+            {
+                GlobalId = existingAdr.GlobalId.Value,
+                RepositoryId = repository.Id,
+                LocalAdrNumber = existingAdr.Number,
+                RepoRelativePath = existingAdr.RepoRelativePath,
+                LastKnownStatus = AdrStatus.Accepted,
+                BaseTemplateVersion = baseVersion,
+                LastReviewedAtUtc = nowUtc
+            },
+            ct);
+
+        return (
+            existingAdr with
+            {
+                Status = AdrStatus.Accepted,
+                GlobalVersion = baseVersion,
+                SupersededByNumber = null
+            },
+            $"ADR-{existingAdr.Number:0000} accepted and linked to existing global ADR {existingAdr.GlobalId}.");
+    }
+
+    /// <summary>
+    /// Applies reject transition rules.
+    /// </summary>
+    /// <param name="existingAdr">Current ADR state.</param>
+    /// <returns>Updated ADR and operation message.</returns>
+    private static (Adr Adr, string Message) BuildRejectTransition(Adr existingAdr)
+    {
+        if (existingAdr.Status is not AdrStatus.Proposed)
+        {
+            throw new InvalidOperationException("Only proposed ADRs can be rejected.");
+        }
+
+        return (
+            existingAdr with
+            {
+                Status = AdrStatus.Rejected,
+                SupersededByNumber = null
+            },
+            $"ADR-{existingAdr.Number:0000} rejected.");
+    }
+
+    /// <summary>
+    /// Applies supersede transition rules.
+    /// </summary>
+    /// <param name="existingAdr">Current ADR state.</param>
+    /// <param name="supersededByNumber">Superseding ADR number.</param>
+    /// <returns>Updated ADR and operation message.</returns>
+    private static (Adr Adr, string Message) BuildSupersedeTransition(Adr existingAdr, int? supersededByNumber)
+    {
+        if (existingAdr.Status is not AdrStatus.Accepted)
+        {
+            throw new InvalidOperationException("Only accepted ADRs can be superseded.");
+        }
+
+        if (supersededByNumber is null or <= 0)
+        {
+            throw new ArgumentException("Superseded-by ADR number must be greater than zero.", nameof(supersededByNumber));
+        }
+
+        if (supersededByNumber.Value == existingAdr.Number)
+        {
+            throw new ArgumentException("Superseded-by ADR number must be different from the current ADR.", nameof(supersededByNumber));
+        }
+
+        return (
+            existingAdr with
+            {
+                Status = AdrStatus.Superseded,
+                SupersededByNumber = supersededByNumber.Value
+            },
+            $"ADR-{existingAdr.Number:0000} marked as superseded by ADR-{supersededByNumber:0000}.");
+    }
+
+    /// <summary>
+    /// Applies deprecate transition rules.
+    /// </summary>
+    /// <param name="existingAdr">Current ADR state.</param>
+    /// <returns>Updated ADR and operation message.</returns>
+    private static (Adr Adr, string Message) BuildDeprecateTransition(Adr existingAdr)
+    {
+        if (existingAdr.Status is not AdrStatus.Accepted)
+        {
+            throw new InvalidOperationException("Only accepted ADRs can be deprecated.");
+        }
+
+        return (
+            existingAdr with
+            {
+                Status = AdrStatus.Deprecated,
+                SupersededByNumber = null
+            },
+            $"ADR-{existingAdr.Number:0000} marked as deprecated.");
     }
 
     /// <summary>
