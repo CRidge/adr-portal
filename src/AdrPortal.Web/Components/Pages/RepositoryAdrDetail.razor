@@ -31,7 +31,10 @@ else
                 <h1>@repository.DisplayName</h1>
                 <p class="lead">ADR-@detail.Number.ToString("0000") from <code>@detail.RepoRelativePath</code>.</p>
             </div>
-            <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}")">Back to list</a>
+            <div class="adr-page__actions">
+                <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}/adr/{detail.Number}/edit")">Edit ADR</a>
+                <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}")">Back to list</a>
+            </div>
         </header>
     </section>
 

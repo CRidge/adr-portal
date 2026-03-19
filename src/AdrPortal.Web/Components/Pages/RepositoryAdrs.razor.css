@@ -10,6 +10,12 @@
     gap: 1rem;
 }
 
+.adr-page__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .adr-page__settings-link {
     border: 1px solid var(--app-border);
     border-radius: 0.6rem;
@@ -199,6 +205,26 @@
     padding: 0.8rem 1rem;
 }
 
+.adr-row__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.adr-row__edit {
+    border: 1px solid var(--app-border);
+    border-radius: 0.55rem;
+    padding: 0.2rem 0.5rem;
+    text-decoration: none;
+    font-size: 0.78rem;
+    color: var(--app-text);
+    background-color: var(--app-surface-muted);
+}
+
+.adr-row__edit:hover {
+    background-color: #eef2f7;
+}
+
 .adr-row:last-child {
     border-bottom: 0;
 }
@@ -283,6 +309,10 @@
 @media (max-width: 960px) {
     .adr-page__header {
         flex-direction: column;
+    }
+
+    .adr-page__actions {
+        flex-wrap: wrap;
     }
 }
 

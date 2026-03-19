@@ -10,6 +10,12 @@
     gap: 1rem;
 }
 
+.adr-page__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .adr-page__settings-link {
     border: 1px solid var(--app-border);
     border-radius: 0.6rem;
@@ -187,6 +193,10 @@
     .adr-page__header,
     .adr-detail__header {
         flex-direction: column;
+    }
+
+    .adr-page__actions {
+        flex-wrap: wrap;
     }
 
     .adr-detail__meta {

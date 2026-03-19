@@ -1,5 +1,6 @@
 using AdrPortal.Core.Entities;
 using AdrPortal.Core.Repositories;
+using AdrPortal.Web.Components.Pages;
 using AdrPortal.Web.Services;
 
 namespace AdrPortal.Web.Tests;
@@ -83,6 +84,198 @@ public class AdrDocumentServiceTests
         await Assert.That(fileRepository.GetByNumberCallCount).IsEqualTo(1);
     }
 
+    [Test]
+    public async Task GetRepositoryForCreateAsync_ReturnsNextNumber_WhenRepositoryExists()
+    {
+        var repository = CreateRepository(id: 13);
+        var fileRepository = new FakeAdrFileRepository([
+            CreateAdr(number: 4, title: "Use PostgreSQL", slug: "use-postgresql", status: AdrStatus.Accepted),
+            CreateAdr(number: 9, title: "Use Redis Cache", slug: "use-redis-cache", status: AdrStatus.Proposed)
+        ]);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var service = new AdrDocumentService(managedStore, factory);
+
+        var result = await service.GetRepositoryForCreateAsync(repository.Id, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Value.NextNumber).IsEqualTo(10);
+        await Assert.That(fileRepository.GetNextNumberCallCount).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task CreateAdrAsync_PersistsMarkdownUsingRepositoryWrite()
+    {
+        var repository = CreateRepository(id: 21);
+        var fileRepository = new FakeAdrFileRepository([
+            CreateAdr(number: 1, title: "Use PostgreSQL", slug: "use-postgresql", status: AdrStatus.Accepted)
+        ]);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var service = new AdrDocumentService(managedStore, factory);
+        var editorModel = AdrEditorModel.CreateForNew();
+        editorModel.Title = "Introduce Request Caching";
+        editorModel.Slug = "introduce-request-caching";
+        editorModel.Status = AdrStatus.Proposed;
+        editorModel.Date = new DateOnly(2026, 3, 19);
+        editorModel.DecisionMakersText = "Architecture Board";
+        editorModel.ConsultedText = "Security";
+        editorModel.InformedText = "Developers";
+        editorModel.MarkdownBody = """
+## Context and Problem Statement
+
+Latency is too high.
+""";
+
+        var result = await service.CreateAdrAsync(repository.Id, editorModel.ToInput(), CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Repository.Id).IsEqualTo(repository.Id);
+        await Assert.That(result.Adr.Number).IsEqualTo(2);
+        await Assert.That(fileRepository.WriteCallCount).IsEqualTo(1);
+        await Assert.That(fileRepository.LastWrittenAdr).IsNotNull();
+        await Assert.That(fileRepository.LastWrittenAdr!.RepoRelativePath).IsEqualTo("docs/adr/adr-0002-introduce-request-caching.md");
+        await Assert.That(fileRepository.LastWrittenAdr.RawMarkdown.StartsWith("# Introduce Request Caching", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(fileRepository.LastWrittenAdr.DecisionMakers.Count).IsEqualTo(1);
+        await Assert.That(fileRepository.LastWrittenAdr.DecisionMakers[0]).IsEqualTo("Architecture Board");
+    }
+
+    [Test]
+    public async Task UpdateAdrAsync_PersistsUpdatedAdr_WhenAdrExists()
+    {
+        var repository = CreateRepository(id: 31);
+        var existingAdr = CreateAdr(number: 8, title: "Use Redis", slug: "use-redis", status: AdrStatus.Proposed) with
+        {
+            GlobalId = Guid.Parse("4f0f9d71-f1f5-414b-8dc7-90bd61ab0cba"),
+            GlobalVersion = 3
+        };
+
+        var fileRepository = new FakeAdrFileRepository([existingAdr]);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var service = new AdrDocumentService(managedStore, factory);
+        var updateModel = AdrEditorModel.FromAdr(existingAdr);
+        updateModel.Title = "Use Redis for Session Cache";
+        updateModel.Slug = "use-redis-session-cache";
+        updateModel.Status = AdrStatus.Accepted;
+        updateModel.DecisionMakersText = "Architecture Board";
+        updateModel.MarkdownBody = """
+# Use Redis for Session Cache
+
+## Context and Problem Statement
+
+Updated decision details.
+""";
+
+        var result = await service.UpdateAdrAsync(repository.Id, existingAdr.Number, updateModel.ToInput(), CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Adr.Number).IsEqualTo(8);
+        await Assert.That(fileRepository.GetByNumberCallCount).IsEqualTo(1);
+        await Assert.That(fileRepository.WriteCallCount).IsEqualTo(1);
+        await Assert.That(fileRepository.LastWrittenAdr).IsNotNull();
+        await Assert.That(fileRepository.LastWrittenAdr!.Title).IsEqualTo("Use Redis for Session Cache");
+        await Assert.That(fileRepository.LastWrittenAdr.Status).IsEqualTo(AdrStatus.Accepted);
+        await Assert.That(fileRepository.LastWrittenAdr.GlobalId).IsEqualTo(existingAdr.GlobalId);
+        await Assert.That(fileRepository.LastWrittenAdr.GlobalVersion).IsEqualTo(existingAdr.GlobalVersion);
+    }
+
+    [Test]
+    public async Task CreateAdrAsync_ThrowsArgumentException_WhenDecisionMakersMissing()
+    {
+        var repository = CreateRepository(id: 55);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var service = new AdrDocumentService(managedStore, factory);
+        var input = new AdrEditorInput
+        {
+            Title = "Use Queues",
+            Slug = "use-queues",
+            Status = AdrStatus.Proposed,
+            Date = new DateOnly(2026, 3, 20),
+            DecisionMakers = [],
+            Consulted = [],
+            Informed = [],
+            BodyMarkdown = "## Context and Problem Statement"
+        };
+
+        Exception? exception = null;
+        try
+        {
+            _ = await service.CreateAdrAsync(repository.Id, input, CancellationToken.None);
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception is ArgumentException).IsTrue();
+        await Assert.That(exception!.Message.Contains("decision maker", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(fileRepository.WriteCallCount).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task CreateAdrAsync_ThrowsArgumentException_WhenRawHtmlIsIncluded()
+    {
+        var repository = CreateRepository(id: 56);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var service = new AdrDocumentService(managedStore, factory);
+        var input = new AdrEditorInput
+        {
+            Title = "Use Queues",
+            Slug = "use-queues",
+            Status = AdrStatus.Proposed,
+            Date = new DateOnly(2026, 3, 20),
+            DecisionMakers = ["Board"],
+            Consulted = [],
+            Informed = [],
+            BodyMarkdown = "## Context\n\n<script>alert('xss')</script>"
+        };
+
+        Exception? exception = null;
+        try
+        {
+            _ = await service.CreateAdrAsync(repository.Id, input, CancellationToken.None);
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception is ArgumentException).IsTrue();
+        await Assert.That(exception!.Message.Contains("raw html", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(fileRepository.WriteCallCount).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task UpdateAdrAsync_ReturnsNull_WhenAdrDoesNotExist()
+    {
+        var repository = CreateRepository(id: 77);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var service = new AdrDocumentService(managedStore, factory);
+        var input = new AdrEditorInput
+        {
+            Title = "Use Queues",
+            Slug = "use-queues",
+            Status = AdrStatus.Proposed,
+            Date = new DateOnly(2026, 3, 20),
+            DecisionMakers = ["Board"],
+            Consulted = [],
+            Informed = [],
+            BodyMarkdown = "## Context and Problem Statement"
+        };
+
+        var result = await service.UpdateAdrAsync(repository.Id, number: 100, input, CancellationToken.None);
+
+        await Assert.That(result).IsNull();
+        await Assert.That(fileRepository.WriteCallCount).IsEqualTo(0);
+    }
+
     private static ManagedRepository CreateRepository(int id)
     {
         return new ManagedRepository
@@ -163,25 +356,42 @@ public class AdrDocumentServiceTests
     {
         public int GetAllCallCount { get; private set; }
         public int GetByNumberCallCount { get; private set; }
+        public int GetNextNumberCallCount { get; private set; }
+        public int WriteCallCount { get; private set; }
+        public Adr? LastWrittenAdr { get; private set; }
+        private readonly List<Adr> store = [.. adrs];
 
         public Task<IReadOnlyList<Adr>> GetAllAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             GetAllCallCount++;
-            return Task.FromResult(adrs);
+            return Task.FromResult<IReadOnlyList<Adr>>(store);
         }
 
         public Task<Adr?> GetByNumberAsync(int number, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             GetByNumberCallCount++;
-            var adr = adrs.SingleOrDefault(item => item.Number == number);
+            var adr = store.SingleOrDefault(item => item.Number == number);
             return Task.FromResult(adr);
         }
 
         public Task<Adr> WriteAsync(Adr adr, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            WriteCallCount++;
+            LastWrittenAdr = adr;
+
+            var existingIndex = store.FindIndex(item => item.Number == adr.Number);
+            if (existingIndex >= 0)
+            {
+                store[existingIndex] = adr;
+            }
+            else
+            {
+                store.Add(adr);
+            }
+
             return Task.FromResult(adr);
         }
 
@@ -194,7 +404,8 @@ public class AdrDocumentServiceTests
         public Task<int> GetNextNumberAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            var nextNumber = adrs.Count is 0 ? 1 : adrs.Max(item => item.Number) + 1;
+            GetNextNumberCallCount++;
+            var nextNumber = store.Count is 0 ? 1 : store.Max(item => item.Number) + 1;
             return Task.FromResult(nextNumber);
         }
     }
