@@ -41,6 +41,16 @@ public sealed class GlobalAdrInstance
     public int BaseTemplateVersion { get; set; }
 
     /// <summary>
+    /// Gets or sets whether local repository edits diverged from the base template.
+    /// </summary>
+    public bool HasLocalChanges { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether a newer global template version is available for this instance.
+    /// </summary>
+    public bool UpdateAvailable { get; set; }
+
+    /// <summary>
     /// Gets or sets the UTC timestamp when this instance was last reviewed.
     /// </summary>
     public DateTime LastReviewedAtUtc { get; set; }

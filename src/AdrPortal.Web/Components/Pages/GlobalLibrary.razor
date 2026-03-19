@@ -1,0 +1,115 @@
+@page "/global"
+@inject GlobalLibraryService GlobalLibraryService
+
+<PageTitle>Global ADR library</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <section class="panel global-library-page">
+        <h1>Global ADR library</h1>
+        <p class="repo-status repo-status--error">@loadError</p>
+    </section>
+}
+else if (projection is null)
+{
+    <section class="panel global-library-page">
+        <h1>Global ADR library</h1>
+        <p class="shell__hint">Loading global ADR library…</p>
+    </section>
+}
+else
+{
+    <section class="panel global-library-page">
+        <header class="global-library-page__header">
+            <div>
+                <p class="eyebrow">Global ADRs</p>
+                <h1>Global ADR library</h1>
+                <p class="lead">
+                    Review registered ADR templates, instance coverage, and sync workload across all managed repositories.
+                </p>
+            </div>
+        </header>
+    </section>
+
+    <section class="panel global-library-table">
+        <header class="global-library-table__header">
+            <h2>Library overview</h2>
+            <small>@projection.Items.Count global ADR(s)</small>
+        </header>
+
+        @if (projection.Items.Count is 0)
+        {
+            <p class="global-library-table__empty">
+                No global ADRs are registered yet. Accept repository ADRs to register global entries.
+            </p>
+        }
+        else
+        {
+            <table class="global-library-table__grid">
+                <thead>
+                    <tr>
+                        <th scope="col">Global ADR</th>
+                        <th scope="col">Current version</th>
+                        <th scope="col">Instances</th>
+                        <th scope="col">Update available</th>
+                        <th scope="col">Pending proposals</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in projection.Items)
+                    {
+                        <tr>
+                            <td>
+                                <a class="inline-link" href="@($"/global/{item.GlobalId}")">
+                                    @item.Title
+                                </a>
+                                <div class="global-library-table__id">@item.GlobalId</div>
+                            </td>
+                            <td>v@item.CurrentVersion</td>
+                            <td>@item.InstanceCount</td>
+                            <td>@item.UpdateAvailableCount</td>
+                            <td>@item.PendingProposalCount</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+}
+
+@code
+{
+    private GlobalLibraryOverviewProjection? projection;
+    private string? loadError;
+
+    /// <summary>
+    /// Loads global ADR overview rows.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    protected override async Task OnInitializedAsync()
+    {
+        loadError = null;
+        projection = null;
+
+        try
+        {
+            projection = await GlobalLibraryService.GetOverviewAsync(CancellationToken.None);
+        }
+        catch (InvalidOperationException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            loadError = exception.Message;
+        }
+    }
+}

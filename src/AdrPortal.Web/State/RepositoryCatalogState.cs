@@ -6,7 +6,9 @@ namespace AdrPortal.Web.State;
 /// <summary>
 /// Maintains the current managed repository list for interactive UI components.
 /// </summary>
-public sealed class RepositoryCatalogState(IManagedRepositoryStore managedRepositoryStore)
+public sealed class RepositoryCatalogState(
+    IManagedRepositoryStore managedRepositoryStore,
+    IGlobalAdrStore globalAdrStore)
 {
     private readonly SemaphoreSlim refreshGate = new(1, 1);
 
@@ -21,6 +23,11 @@ public sealed class RepositoryCatalogState(IManagedRepositoryStore managedReposi
     public IReadOnlyList<ManagedRepository> Repositories { get; private set; } = [];
 
     /// <summary>
+    /// Gets the dashboard badge count for pending global sync work.
+    /// </summary>
+    public int DashboardPendingCount { get; private set; }
+
+    /// <summary>
     /// Refreshes repositories from persistence and raises change notifications.
     /// </summary>
     /// <param name="ct">Cancellation token for the operation.</param>
@@ -32,6 +39,7 @@ public sealed class RepositoryCatalogState(IManagedRepositoryStore managedReposi
         try
         {
             Repositories = await managedRepositoryStore.GetAllAsync(ct);
+            DashboardPendingCount = await globalAdrStore.GetDashboardPendingCountAsync(ct);
         }
         finally
         {

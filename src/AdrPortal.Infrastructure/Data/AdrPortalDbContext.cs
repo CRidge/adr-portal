@@ -24,6 +24,16 @@ public class AdrPortalDbContext(DbContextOptions<AdrPortalDbContext> options) : 
     public DbSet<GlobalAdrInstance> GlobalAdrInstances => Set<GlobalAdrInstance>();
 
     /// <summary>
+    /// Gets or sets immutable version snapshots for global ADR topics.
+    /// </summary>
+    public DbSet<GlobalAdrVersion> GlobalAdrVersions => Set<GlobalAdrVersion>();
+
+    /// <summary>
+    /// Gets or sets repository-to-library update proposals for global ADR topics.
+    /// </summary>
+    public DbSet<GlobalAdrUpdateProposal> GlobalAdrUpdateProposals => Set<GlobalAdrUpdateProposal>();
+
+    /// <summary>
     /// Configures entity mappings for the portal data model.
     /// </summary>
     /// <param name="modelBuilder">Model builder used to configure EF Core mappings.</param>
@@ -98,6 +108,14 @@ public class AdrPortalDbContext(DbContextOptions<AdrPortalDbContext> options) : 
             entity.Property(instance => instance.BaseTemplateVersion)
                 .IsRequired();
 
+            entity.Property(instance => instance.HasLocalChanges)
+                .HasDefaultValue(false)
+                .IsRequired();
+
+            entity.Property(instance => instance.UpdateAvailable)
+                .HasDefaultValue(false)
+                .IsRequired();
+
             entity.Property(instance => instance.LastReviewedAtUtc)
                 .IsRequired();
 
@@ -112,6 +130,68 @@ public class AdrPortalDbContext(DbContextOptions<AdrPortalDbContext> options) : 
             entity.HasOne(instance => instance.Repository)
                 .WithMany()
                 .HasForeignKey(instance => instance.RepositoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GlobalAdrVersion>(entity =>
+        {
+            entity.ToTable("GlobalAdrVersions");
+            entity.HasKey(version => version.Id);
+
+            entity.Property(version => version.VersionNumber)
+                .IsRequired();
+
+            entity.Property(version => version.Title)
+                .HasMaxLength(400)
+                .IsRequired();
+
+            entity.Property(version => version.MarkdownContent)
+                .IsRequired();
+
+            entity.Property(version => version.CreatedAtUtc)
+                .IsRequired();
+
+            entity.HasIndex(version => new { version.GlobalId, version.VersionNumber })
+                .IsUnique();
+
+            entity.HasOne(version => version.GlobalAdr)
+                .WithMany(globalAdr => globalAdr.Versions)
+                .HasForeignKey(version => version.GlobalId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GlobalAdrUpdateProposal>(entity =>
+        {
+            entity.ToTable("GlobalAdrUpdateProposals");
+            entity.HasKey(proposal => proposal.Id);
+
+            entity.Property(proposal => proposal.ProposedFromVersion)
+                .IsRequired();
+
+            entity.Property(proposal => proposal.ProposedTitle)
+                .HasMaxLength(400)
+                .IsRequired();
+
+            entity.Property(proposal => proposal.ProposedMarkdownContent)
+                .IsRequired();
+
+            entity.Property(proposal => proposal.IsPending)
+                .HasDefaultValue(true)
+                .IsRequired();
+
+            entity.Property(proposal => proposal.CreatedAtUtc)
+                .IsRequired();
+
+            entity.HasIndex(proposal => new { proposal.GlobalId, proposal.RepositoryId, proposal.LocalAdrNumber, proposal.IsPending });
+
+            entity.HasOne(proposal => proposal.GlobalAdr)
+                .WithMany(globalAdr => globalAdr.UpdateProposals)
+                .HasForeignKey(proposal => proposal.GlobalId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(proposal => proposal.Repository)
+                .WithMany()
+                .HasForeignKey(proposal => proposal.RepositoryId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

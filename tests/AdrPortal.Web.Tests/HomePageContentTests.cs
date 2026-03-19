@@ -3,7 +3,7 @@ namespace AdrPortal.Web.Tests;
 public class HomePageContentTests
 {
     [Test]
-    public async Task HomePage_IncludesPhaseSevenSignals()
+    public async Task HomePage_IncludesPhaseEightSignals()
     {
         var repositoryRoot = ResolveRepositoryRoot();
         var homePagePath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "Home.razor");
@@ -11,8 +11,9 @@ public class HomePageContentTests
 
         var homeMarkup = await File.ReadAllTextAsync(normalizedPath);
 
-        await Assert.That(homeMarkup.Contains("Phase 7", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(homeMarkup.Contains("ADR transitions and global registration are active", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Phase 8", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Global ADR library and sync workflows are active", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("/global", StringComparison.Ordinal)).IsTrue();
         await Assert.That(homeMarkup.Contains("/settings/repos", StringComparison.Ordinal)).IsTrue();
     }
 
@@ -49,11 +50,14 @@ public class HomePageContentTests
         var markup = await File.ReadAllTextAsync(layoutPath);
 
         await Assert.That(markup.Contains("Managed repositories", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Global library", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("shell__nav-badge", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("/global", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/settings/repos", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__repo-list", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/repos/{repository.Id}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__repo-indicator", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(markup.Contains("Phase 7 ADR transitions and registration", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Phase 8 global ADR library and sync workflows", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
@@ -76,12 +80,34 @@ public class HomePageContentTests
         await Assert.That(detailMarkup.Contains("Render(result.Value.Adr.RawMarkdown)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Lifecycle actions", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Accept ADR", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Propose library update", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("/global/{syncStatus.GlobalId}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Mark superseded", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Mark deprecated", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/new\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/{Number:int}/edit\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("MADR markdown body", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("Raw HTML is not accepted", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task GlobalLibraryRoutes_ContainOverviewAndDetailPages()
+    {
+        var repositoryRoot = ResolveRepositoryRoot();
+        var overviewPath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "GlobalLibrary.razor");
+        var detailPath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "GlobalAdrDetail.razor");
+        var overviewMarkup = await File.ReadAllTextAsync(overviewPath);
+        var detailMarkup = await File.ReadAllTextAsync(detailPath);
+
+        await Assert.That(overviewMarkup.Contains("@page \"/global\"", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(overviewMarkup.Contains("Library overview", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(overviewMarkup.Contains("Current version", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(overviewMarkup.Contains("Update available", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("@page \"/global/{GlobalId:guid}\"", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Version history", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Baseline diff viewer", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Repo → library proposals", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Library → repos instances", StringComparison.Ordinal)).IsTrue();
     }
 
     private static string ResolveRepositoryRoot()

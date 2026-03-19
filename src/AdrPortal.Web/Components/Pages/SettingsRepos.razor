@@ -1,6 +1,7 @@
 @page "/settings/repos"
 @inject IManagedRepositoryStore ManagedRepositoryStore
 @inject RepositoryCatalogState RepositoryCatalogState
+@inject GlobalLibraryService GlobalLibraryService
 
 <PageTitle>Repository settings</PageTitle>
 
@@ -188,6 +189,7 @@
                     isActive: editorModel.IsActive);
 
                 var result = await ManagedRepositoryStore.AddAsync(createdRepository, CancellationToken.None);
+                _ = await GlobalLibraryService.ReconcileRepoAsync(result.Id, CancellationToken.None);
                 statusMessage = $"Added '{result.DisplayName}'.";
                 InitializeEditor();
             }
@@ -195,10 +197,25 @@
             await LoadRepositoriesAsync(CancellationToken.None);
             await RepositoryCatalogState.RefreshAsync(CancellationToken.None);
         }
-        catch (Exception)
+        catch (InvalidOperationException exception)
         {
             statusIsError = true;
-            statusMessage = "Unable to save repository. Verify values and try again.";
+            statusMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            statusIsError = true;
+            statusMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            statusIsError = true;
+            statusMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            statusIsError = true;
+            statusMessage = exception.Message;
         }
         finally
         {

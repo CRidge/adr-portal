@@ -206,6 +206,30 @@
     color: #334155;
 }
 
+.adr-detail__button--propose {
+    border-color: #bfdbfe;
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.adr-detail__sync {
+    border: 1px solid var(--app-border);
+    border-radius: 0.7rem;
+    padding: 0.75rem;
+    background-color: #f8fafc;
+}
+
+.adr-detail__sync h3 {
+    margin: 0 0 0.55rem 0;
+    font-size: 0.95rem;
+}
+
+.adr-detail__sync-summary {
+    margin: 0 0 0.45rem 0;
+    font-size: 0.85rem;
+    color: var(--app-muted);
+}
+
 .state-badge {
     display: inline-flex;
     align-items: center;

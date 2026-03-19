@@ -1,0 +1,248 @@
+.global-adr-page {
+    gap: 1rem;
+    max-width: 72rem;
+}
+
+.global-adr-page__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.global-adr-page__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.global-adr-page__link {
+    border: 1px solid var(--app-border);
+    border-radius: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    color: var(--app-text);
+    text-decoration: none;
+    background-color: var(--app-surface-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.global-adr-page__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    border: 1px solid var(--app-border);
+    border-radius: 0.7rem;
+    background-color: #ffffff;
+    padding: 0.75rem 0.9rem;
+    font-size: 0.86rem;
+}
+
+.global-adr-panel {
+    max-width: 72rem;
+    padding: 0;
+    overflow: hidden;
+}
+
+.global-adr-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--app-border);
+    background-color: var(--app-surface-muted);
+    padding: 0.9rem 1rem;
+}
+
+.global-adr-panel__header h2 {
+    margin: 0;
+}
+
+.global-adr-panel__header small {
+    color: var(--app-muted);
+    font-size: 0.8rem;
+}
+
+.global-adr-panel__empty {
+    margin: 0;
+    padding: 1rem;
+    color: var(--app-muted);
+}
+
+.global-adr-versions {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.global-adr-versions__row {
+    border-bottom: 1px solid var(--app-border);
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.global-adr-versions__row:last-child {
+    border-bottom: 0;
+}
+
+.global-adr-versions__row strong {
+    display: block;
+}
+
+.global-adr-versions__row span {
+    font-size: 0.82rem;
+    color: var(--app-muted);
+}
+
+.global-adr-versions details summary {
+    cursor: pointer;
+    font-size: 0.84rem;
+    color: var(--app-accent);
+}
+
+.global-adr-versions details pre {
+    margin: 0.5rem 0 0;
+    border: 1px solid var(--app-border);
+    border-radius: 0.6rem;
+    background-color: #f8fafc;
+    padding: 0.7rem;
+    white-space: pre-wrap;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 0.8rem;
+}
+
+.global-adr-diff {
+    margin: 0;
+    padding: 0.8rem 1rem;
+    border-top: 1px solid var(--app-border);
+    background-color: #f8fafc;
+    white-space: pre-wrap;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 0.8rem;
+}
+
+.global-adr-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.global-adr-table th,
+.global-adr-table td {
+    text-align: left;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--app-border);
+    vertical-align: top;
+}
+
+.global-adr-table th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--app-muted);
+    background-color: #fcfdff;
+}
+
+.global-adr-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.global-adr-table__meta {
+    margin-top: 0.2rem;
+    font-size: 0.8rem;
+    color: var(--app-muted);
+}
+
+.global-adr-table__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.global-adr-button {
+    border: 1px solid var(--app-border);
+    border-radius: 0.55rem;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background-color: #ffffff;
+    color: var(--app-text);
+    cursor: pointer;
+}
+
+.global-adr-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.global-adr-button--accept {
+    border-color: #bbf7d0;
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.global-adr-button--reject {
+    border-color: #fecaca;
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.global-adr-button--review {
+    border-color: #bfdbfe;
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.global-adr-button--customise {
+    border-color: #fde68a;
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.global-adr-flags {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.global-adr-flag {
+    border: 1px solid #d1d5db;
+    background-color: #f9fafb;
+    color: #374151;
+    border-radius: 999px;
+    padding: 0.12rem 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.global-adr-flag--local {
+    border-color: #fde68a;
+    color: #92400e;
+    background-color: #fef3c7;
+}
+
+.global-adr-flag--update {
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+    background-color: #dbeafe;
+}
+
+@media (max-width: 960px) {
+    .global-adr-page__header {
+        flex-direction: column;
+    }
+
+    .global-adr-page__actions {
+        flex-wrap: wrap;
+    }
+
+    .global-adr-table {
+        display: block;
+        overflow-x: auto;
+    }
+}
