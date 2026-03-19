@@ -6,6 +6,7 @@ using AdrPortal.Infrastructure.Ai;
 using AdrPortal.Infrastructure.Data;
 using AdrPortal.Infrastructure.Repositories;
 using AdrPortal.Infrastructure.Workflows;
+using Microsoft.Extensions.AI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,7 +47,19 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGlobalAdrStore, GlobalAdrStore>();
         services.AddSingleton<IMadrParser, MadrParser>();
         services.AddSingleton<IMadrWriter, MadrWriter>();
-        services.AddSingleton<IAiService, DeterministicAiService>();
+        var aiConfiguration = configuration.GetSection(AiProviderOptions.SectionName);
+        services.Configure<AiProviderOptions>(options =>
+        {
+            options.Provider = aiConfiguration["Provider"] ?? options.Provider;
+            options.Model = aiConfiguration["Model"] ?? options.Model;
+            options.Endpoint = aiConfiguration["Endpoint"] ?? options.Endpoint;
+            if (bool.TryParse(aiConfiguration["AllowDeterministicFallback"], out var parsedAllowFallback))
+            {
+                options.AllowDeterministicFallback = parsedAllowFallback;
+            }
+        });
+        services.AddSingleton<DeterministicAiService>();
+        RegisterAiProviderServices(services, configuration);
         var gitHubConfiguration = configuration.GetSection(GitHubOptions.SectionName);
         services.Configure<GitHubOptions>(options =>
         {
@@ -62,5 +75,32 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGitPrWorkflowProcessor, GitPrWorkflowProcessor>();
 
         return services;
+    }
+
+    private static void RegisterAiProviderServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddSingleton<IAiService>(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<
+                Microsoft.Extensions.Options.IOptions<AiProviderOptions>>().Value;
+            if (!options.Provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase)
+                && !options.Provider.Equals("Copilot", StringComparison.OrdinalIgnoreCase))
+            {
+                return serviceProvider.GetRequiredService<DeterministicAiService>();
+            }
+
+            var token = AiProviderTokenResolver.ResolveToken(options.Provider, configuration);
+            var tokenValue = token ?? string.Empty;
+            var missingTokenReason = string.IsNullOrWhiteSpace(token)
+                ? "External AI provider is configured but COPILOT_TOKEN is missing. Deterministic fallback used."
+                : string.Empty;
+
+            return ActivatorUtilities.CreateInstance<ExternalAiService>(
+                serviceProvider,
+                tokenValue,
+                missingTokenReason);
+        });
     }
 }

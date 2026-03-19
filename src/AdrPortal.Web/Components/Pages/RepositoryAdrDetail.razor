@@ -3,7 +3,9 @@
 @inject AdrListViewService AdrListViewService
 @inject IAdrMarkdownRenderer AdrMarkdownRenderer
 @inject GlobalLibraryService GlobalLibraryService
+@inject AdrAiAssistantService AdrAiAssistantService
 @using AdrPortal.Core.Entities
+@using AdrPortal.Core.Ai
 @using AdrPortal.Web.Services
 
 <PageTitle>@GetPageTitle()</PageTitle>
@@ -37,6 +39,14 @@ else
                 <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}")">Back to list</a>
             </div>
         </header>
+        <div class="adr-page__actions adr-page__actions--analysis">
+            <button type="button"
+                    class="adr-detail__button adr-detail__button--analysis"
+                    @onclick="AnalyzeAffectedAdrsAsync"
+                    disabled="@isAnalyzingAffectedAdrs">
+                @(isAnalyzingAffectedAdrs ? "Analyzing affected ADRs..." : "Find Affected ADRs")
+            </button>
+        </div>
     </section>
 
     <article class="panel adr-detail">
@@ -51,6 +61,11 @@ else
         @if (!string.IsNullOrWhiteSpace(transitionMessage))
         {
             <p class="@(transitionIsError ? "repo-status repo-status--error" : "repo-status")">@transitionMessage</p>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(affectedAdrsMessage))
+        {
+            <p class="@(affectedAdrsIsError ? "repo-status repo-status--error" : "repo-status")">@affectedAdrsMessage</p>
         }
 
         <section class="adr-detail__meta">
@@ -179,6 +194,47 @@ else
             </p>
         }
 
+        @if (affectedAdrsResult is not null)
+        {
+            <section class="adr-detail__affected">
+                <h3>Affected ADRs</h3>
+                <p class="adr-detail__affected-summary">@affectedAdrsResult.Summary</p>
+                @if (affectedAdrsResult.IsFallback)
+                {
+                    <p class="adr-detail__affected-fallback">
+                        Deterministic fallback active
+                        @if (!string.IsNullOrWhiteSpace(affectedAdrsResult.FallbackReason))
+                        {
+                            <span>· @affectedAdrsResult.FallbackReason</span>
+                        }
+                    </p>
+                }
+                @if (affectedAdrsResult.Items.Count is 0)
+                {
+                    <p class="shell__hint">No related ADRs were identified.</p>
+                }
+                else
+                {
+                    <ul class="adr-detail__affected-list">
+                        @foreach (var item in affectedAdrsResult.Items)
+                        {
+                            <li>
+                                <div>
+                                    <strong>ADR-@item.AdrNumber.ToString("0000"): @item.Title</strong>
+                                    <p>@item.Rationale</p>
+                                    @if (item.Signals.Count > 0)
+                                    {
+                                        <p class="adr-detail__affected-signals"><strong>Signals:</strong> @string.Join(", ", item.Signals)</p>
+                                    }
+                                </div>
+                                <span class="state-badge @GetImpactBadgeCssModifier(item.ImpactLevel)">@item.ImpactLevel</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+
         <section class="adr-detail__content">
             @((MarkupString)detail.HtmlContent)
         </section>
@@ -204,6 +260,10 @@ else
     private string? syncMessage;
     private bool syncIsError;
     private bool isApplyingSync;
+    private AffectedAdrAnalysisResult? affectedAdrsResult;
+    private string? affectedAdrsMessage;
+    private bool affectedAdrsIsError;
+    private bool isAnalyzingAffectedAdrs;
 
     /// <summary>
     /// Loads repository and ADR detail values for the requested route.
@@ -222,6 +282,10 @@ else
         syncMessage = null;
         syncIsError = false;
         isApplyingSync = false;
+        affectedAdrsResult = null;
+        affectedAdrsMessage = null;
+        affectedAdrsIsError = false;
+        isAnalyzingAffectedAdrs = false;
 
         try
         {
@@ -236,6 +300,7 @@ else
             detail = AdrListViewService.BuildDetail(result.Value.Adr, AdrMarkdownRenderer.Render(result.Value.Adr.RawMarkdown));
             supersedeTargetNumber = detail.SupersededByNumber;
             syncStatus = await GlobalLibraryService.GetRepositoryAdrSyncStatusAsync(RepositoryId, result.Value.Adr, CancellationToken.None);
+            await LoadAffectedAdrsAnalysisAsync();
         }
         catch (InvalidOperationException exception)
         {
@@ -294,6 +359,7 @@ else
             supersedeTargetNumber = detail.SupersededByNumber;
             transitionMessage = transitionResult.Message;
             syncStatus = await GlobalLibraryService.GetRepositoryAdrSyncStatusAsync(RepositoryId, transitionResult.Adr, CancellationToken.None);
+            await LoadAffectedAdrsAnalysisAsync();
         }
         catch (InvalidOperationException exception)
         {
@@ -377,6 +443,79 @@ else
     }
 
     /// <summary>
+    /// Runs affected ADR analysis explicitly from the detail page action.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task AnalyzeAffectedAdrsAsync()
+    {
+        if (isAnalyzingAffectedAdrs)
+        {
+            return;
+        }
+
+        await LoadAffectedAdrsAnalysisAsync();
+    }
+
+    /// <summary>
+    /// Loads affected ADR analysis for the current detail context.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task LoadAffectedAdrsAnalysisAsync()
+    {
+        if (detail is null || isAnalyzingAffectedAdrs)
+        {
+            return;
+        }
+
+        isAnalyzingAffectedAdrs = true;
+        affectedAdrsMessage = null;
+        affectedAdrsIsError = false;
+
+        try
+        {
+            var analysis = await AdrAiAssistantService.FindAffectedAdrsAsync(RepositoryId, detail.Number, CancellationToken.None);
+            if (analysis is null)
+            {
+                affectedAdrsResult = null;
+                affectedAdrsIsError = true;
+                affectedAdrsMessage = $"Unable to analyze ADR-{detail.Number:0000} for repository '{RepositoryId}'.";
+                return;
+            }
+
+            affectedAdrsResult = analysis;
+            affectedAdrsMessage = $"Affected ADR analysis complete ({analysis.Items.Count} item(s)).";
+        }
+        catch (InvalidOperationException exception)
+        {
+            affectedAdrsResult = null;
+            affectedAdrsIsError = true;
+            affectedAdrsMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            affectedAdrsResult = null;
+            affectedAdrsIsError = true;
+            affectedAdrsMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            affectedAdrsResult = null;
+            affectedAdrsIsError = true;
+            affectedAdrsMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            affectedAdrsResult = null;
+            affectedAdrsIsError = true;
+            affectedAdrsMessage = exception.Message;
+        }
+        finally
+        {
+            isAnalyzingAffectedAdrs = false;
+        }
+    }
+
+    /// <summary>
     /// Formats a list of people for compact metadata display.
     /// </summary>
     /// <param name="values">Input values.</param>
@@ -424,6 +563,21 @@ else
         }
 
         return "In sync";
+    }
+
+    /// <summary>
+    /// Gets badge CSS modifier for affected ADR impact level.
+    /// </summary>
+    /// <param name="impactLevel">Impact level value.</param>
+    /// <returns>Badge modifier CSS class.</returns>
+    private static string GetImpactBadgeCssModifier(AdrImpactLevel impactLevel)
+    {
+        return impactLevel switch
+        {
+            AdrImpactLevel.High => "impact-high",
+            AdrImpactLevel.Medium => "impact-medium",
+            _ => "impact-low"
+        };
     }
 
     /// <summary>

@@ -88,10 +88,14 @@ public class HomePageContentTests
         await Assert.That(detailMarkup.Contains("/global/{syncStatus.GlobalId}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Mark superseded", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Mark deprecated", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Find Affected ADRs", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Affected ADRs", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/new\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/{Number:int}/edit\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("MADR markdown body", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("Raw HTML is not accepted", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("Evaluate & Recommend", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("AI recommendation", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]

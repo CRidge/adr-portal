@@ -159,6 +159,60 @@
     background-color: #225fe0;
 }
 
+.adr-editor__button--analysis {
+    border-color: #bfdbfe;
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.adr-editor__button--analysis:hover:not(:disabled) {
+    background-color: #bfdbfe;
+}
+
+.adr-editor-ai {
+    border: 1px solid var(--app-border);
+    border-radius: 0.7rem;
+    padding: 0.9rem;
+    background-color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.adr-editor-ai h3,
+.adr-editor-ai h4 {
+    margin: 0;
+}
+
+.adr-editor-ai p {
+    margin: 0;
+}
+
+.adr-editor-ai__fit {
+    color: var(--app-muted);
+    font-size: 0.9rem;
+}
+
+.adr-editor-ai__fallback {
+    font-size: 0.82rem;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+.adr-editor-ai__section ul {
+    margin: 0.35rem 0 0 1.25rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.adr-editor-ai__section li p {
+    margin: 0.2rem 0 0 0;
+    color: var(--app-muted);
+    font-size: 0.86rem;
+}
+
 .repo-status {
     margin: 0;
     border: 1px solid #bfdbfe;

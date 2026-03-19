@@ -16,6 +16,10 @@
     gap: 0.5rem;
 }
 
+.adr-page__actions--analysis {
+    margin-top: 0.35rem;
+}
+
 .adr-page__settings-link {
     border: 1px solid var(--app-border);
     border-radius: 0.6rem;
@@ -212,6 +216,12 @@
     color: #1d4ed8;
 }
 
+.adr-detail__button--analysis {
+    border-color: #bfdbfe;
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
 .adr-detail__sync {
     border: 1px solid var(--app-border);
     border-radius: 0.7rem;
@@ -228,6 +238,64 @@
     margin: 0 0 0.45rem 0;
     font-size: 0.85rem;
     color: var(--app-muted);
+}
+
+.adr-detail__affected {
+    border: 1px solid var(--app-border);
+    border-radius: 0.7rem;
+    padding: 0.75rem;
+    background-color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.adr-detail__affected h3 {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.adr-detail__affected-summary {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 0.86rem;
+}
+
+.adr-detail__affected-fallback {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+.adr-detail__affected-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.adr-detail__affected-list li {
+    border: 1px solid var(--app-border);
+    border-radius: 0.6rem;
+    background-color: #ffffff;
+    padding: 0.6rem 0.7rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.6rem;
+}
+
+.adr-detail__affected-list li p {
+    margin: 0.2rem 0 0 0;
+    color: var(--app-muted);
+    font-size: 0.86rem;
+}
+
+.adr-detail__affected-signals {
+    font-size: 0.82rem;
 }
 
 .state-badge {
@@ -269,6 +337,24 @@
     color: #475569;
     background-color: #f1f5f9;
     border-color: #cbd5e1;
+}
+
+.state-badge.impact-high {
+    color: #991b1b;
+    background-color: #fee2e2;
+    border-color: #fecaca;
+}
+
+.state-badge.impact-medium {
+    color: #92400e;
+    background-color: #fef3c7;
+    border-color: #fde68a;
+}
+
+.state-badge.impact-low {
+    color: #1d4ed8;
+    background-color: #dbeafe;
+    border-color: #bfdbfe;
 }
 
 .repo-status {

@@ -376,6 +376,47 @@ public class AiBootstrapServiceTests
         public int CallCount { get; private set; }
         public string? LastRepoRootPath { get; private set; }
 
+        public Task<AdrEvaluationRecommendation> EvaluateAndRecommendAsync(
+            AdrDraftForAnalysis draftAdr,
+            IReadOnlyList<Adr> existingAdrs,
+            CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(draftAdr);
+            ArgumentNullException.ThrowIfNull(existingAdrs);
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(
+                new AdrEvaluationRecommendation
+                {
+                    PreferredOption = "Deterministic option",
+                    RecommendationSummary = "Not used by bootstrap tests.",
+                    DecisionFit = "N/A",
+                    Options = [],
+                    Risks = [],
+                    SuggestedAlternatives = [],
+                    GroundingAdrNumbers = [],
+                    IsFallback = true,
+                    FallbackReason = "Configured deterministic AI provider."
+                });
+        }
+
+        public Task<AffectedAdrAnalysisResult> FindAffectedAdrsAsync(
+            AdrDraftForAnalysis draftAdr,
+            IReadOnlyList<Adr> existingAdrs,
+            CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(draftAdr);
+            ArgumentNullException.ThrowIfNull(existingAdrs);
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(
+                new AffectedAdrAnalysisResult
+                {
+                    Items = [],
+                    Summary = "No affected ADRs.",
+                    IsFallback = true,
+                    FallbackReason = "Configured deterministic AI provider."
+                });
+        }
+
         public Task<AdrBootstrapProposalSet> BootstrapAdrsFromCodebaseAsync(string repoRootPath, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
