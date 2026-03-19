@@ -1,5 +1,6 @@
 using AdrPortal.Core.Entities;
 using AdrPortal.Core.Repositories;
+using AdrPortal.Core.Workflows;
 using AdrPortal.Web.Services;
 
 namespace AdrPortal.Web.Tests;
@@ -394,6 +395,15 @@ public class GlobalLibraryServiceTests
     {
         var globalId = Guid.Parse("88888888-8888-8888-8888-888888888888");
         var instanceId = 12;
+        var repository = CreateRepository(500, "contoso/cosmos");
+        var repositoryAdr = CreateAdr(
+            number: 3,
+            title: "Use Cosmos DB",
+            slug: "use-cosmos-db",
+            status: AdrStatus.Accepted,
+            globalId: globalId,
+            globalVersion: 2,
+            rawMarkdown: "# Use Cosmos DB");
         var globalStore = new FakeGlobalAdrStore(
             globalAdrs:
             [
@@ -406,7 +416,17 @@ public class GlobalLibraryServiceTests
                     LastUpdatedAtUtc = DateTime.UtcNow.AddDays(-1)
                 }
             ],
-            versions: [],
+            versions:
+            [
+                new GlobalAdrVersion
+                {
+                    GlobalId = globalId,
+                    VersionNumber = 5,
+                    Title = "Use Cosmos DB",
+                    MarkdownContent = "# Use Cosmos DB\nUpdated template",
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
+                }
+            ],
             proposals: [],
             instances:
             [
@@ -424,7 +444,10 @@ public class GlobalLibraryServiceTests
                     LastReviewedAtUtc = DateTime.UtcNow.AddDays(-1)
                 }
             ]);
-        var service = CreateService(globalStore);
+        var service = CreateService(
+            globalStore,
+            managedStore: new FakeManagedRepositoryStore([repository]),
+            fileRepository: new FakeAdrFileRepository([repositoryAdr]));
 
         var result = await service.ApplyUpdateToInstanceAsync(globalId, instanceId, CancellationToken.None);
 
@@ -528,6 +551,77 @@ public class GlobalLibraryServiceTests
     }
 
     [Test]
+    public async Task ApplyUpdateToInstanceAsync_QueuesGitPrWorkflowItem()
+    {
+        var globalId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        var repository = CreateRepository(700, "contoso/queue-repo");
+        var repositoryAdr = CreateAdr(
+            number: 4,
+            title: "Use HTTP APIs",
+            slug: "use-http-apis",
+            status: AdrStatus.Accepted,
+            globalId: globalId,
+            globalVersion: 1,
+            rawMarkdown: "# Use HTTP APIs");
+        var globalStore = new FakeGlobalAdrStore(
+            globalAdrs:
+            [
+                new GlobalAdr
+                {
+                    GlobalId = globalId,
+                    Title = "Use HTTP APIs",
+                    CurrentVersion = 2,
+                    RegisteredAtUtc = DateTime.UtcNow.AddDays(-5),
+                    LastUpdatedAtUtc = DateTime.UtcNow.AddHours(-1)
+                }
+            ],
+            versions:
+            [
+                new GlobalAdrVersion
+                {
+                    GlobalId = globalId,
+                    VersionNumber = 2,
+                    Title = "Use HTTP APIs",
+                    MarkdownContent = "# Use HTTP APIs\nUpdated",
+                    CreatedAtUtc = DateTime.UtcNow.AddHours(-1)
+                }
+            ],
+            proposals: [],
+            instances:
+            [
+                new GlobalAdrInstance
+                {
+                    Id = 90,
+                    GlobalId = globalId,
+                    RepositoryId = repository.Id,
+                    LocalAdrNumber = repositoryAdr.Number,
+                    RepoRelativePath = repositoryAdr.RepoRelativePath,
+                    LastKnownStatus = AdrStatus.Accepted,
+                    BaseTemplateVersion = 1,
+                    HasLocalChanges = true,
+                    UpdateAvailable = true,
+                    LastReviewedAtUtc = DateTime.UtcNow.AddDays(-1)
+                }
+            ]);
+        var queue = new RecordingQueue();
+        var service = CreateService(
+            globalStore,
+            managedStore: new FakeManagedRepositoryStore([repository]),
+            fileRepository: new FakeAdrFileRepository([repositoryAdr]),
+            queue: queue);
+
+        _ = await service.ApplyUpdateToInstanceAsync(globalId, instanceId: 90, CancellationToken.None);
+
+        await Assert.That(queue.Items.Count).IsEqualTo(1);
+        var queued = queue.Items.Single();
+        await Assert.That(queued.RepositoryId).IsEqualTo(repository.Id);
+        await Assert.That(queued.Trigger).IsEqualTo(GitPrWorkflowTrigger.GlobalLibraryApply);
+        await Assert.That(queued.Action).IsEqualTo(GitPrWorkflowAction.CreateOrUpdatePullRequest);
+        await Assert.That(queued.AdrNumber).IsEqualTo(repositoryAdr.Number);
+        await Assert.That(queued.RepoRelativePath).IsEqualTo(repositoryAdr.RepoRelativePath);
+    }
+
+    [Test]
     public async Task AcceptLibraryProposalAsync_PublishesVersionAndFlagsOtherInstances()
     {
         var globalId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -623,12 +717,13 @@ public class GlobalLibraryServiceTests
     private static GlobalLibraryService CreateService(
         FakeGlobalAdrStore globalStore,
         FakeManagedRepositoryStore? managedStore = null,
-        FakeAdrFileRepository? fileRepository = null)
+        FakeAdrFileRepository? fileRepository = null,
+        RecordingQueue? queue = null)
     {
         var resolvedManagedStore = managedStore ?? new FakeManagedRepositoryStore([]);
         var resolvedRepository = fileRepository ?? new FakeAdrFileRepository([]);
         var factory = new FakeMadrRepositoryFactory(resolvedRepository);
-        return new GlobalLibraryService(globalStore, resolvedManagedStore, factory);
+        return new GlobalLibraryService(globalStore, resolvedManagedStore, factory, queue, gitPrWorkflowProcessor: null);
     }
 
     private static ManagedRepository CreateRepository(int id, string displayName)
@@ -639,6 +734,7 @@ public class GlobalLibraryServiceTests
             DisplayName = displayName,
             RootPath = $@"C:\repos\{displayName.Replace('/', '-')}",
             AdrFolder = "docs/adr",
+            GitRemoteUrl = $"https://github.com/{displayName}.git",
             IsActive = true
         };
     }
@@ -708,6 +804,53 @@ public class GlobalLibraryServiceTests
         {
             ArgumentNullException.ThrowIfNull(managedRepository);
             return repository;
+        }
+    }
+
+    private sealed class RecordingQueue : IGitPrWorkflowQueue
+    {
+        public List<GitPrWorkflowQueueItem> Items { get; } = [];
+
+        public Task EnqueueAsync(GitPrWorkflowQueueItem item, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            ct.ThrowIfCancellationRequested();
+            Items.Add(item);
+            return Task.CompletedTask;
+        }
+
+        public Task UpsertAsync(GitPrWorkflowQueueItem item, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            ct.ThrowIfCancellationRequested();
+            var index = Items.FindIndex(existing => existing.Id == item.Id);
+            if (index >= 0)
+            {
+                Items[index] = item;
+            }
+            else
+            {
+                Items.Add(item);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<GitPrWorkflowQueueItem?> GetLatestForAdrAsync(int repositoryId, int adrNumber, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var item = Items
+                .Where(existing => existing.RepositoryId == repositoryId && existing.AdrNumber == adrNumber)
+                .OrderByDescending(existing => existing.EnqueuedAtUtc)
+                .ThenByDescending(existing => existing.Id)
+                .FirstOrDefault();
+            return Task.FromResult(item);
+        }
+
+        public Task<GitPrWorkflowQueueItem?> GetByIdAsync(Guid queueItemId, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(Items.FirstOrDefault(existing => existing.Id == queueItemId));
         }
     }
 
