@@ -23,6 +23,13 @@ public interface IManagedRepositoryStore
     Task<IReadOnlyList<ManagedRepository>> GetAllAsync(CancellationToken ct);
 
     /// <summary>
+    /// Gets all managed repositories keyed by identifier.
+    /// </summary>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Dictionary of managed repositories by identifier.</returns>
+    Task<IReadOnlyDictionary<int, ManagedRepository>> GetByIdsAsync(IReadOnlyCollection<int> repositoryIds, CancellationToken ct);
+
+    /// <summary>
     /// Creates a managed repository record.
     /// </summary>
     /// <param name="repository">Repository details to persist.</param>

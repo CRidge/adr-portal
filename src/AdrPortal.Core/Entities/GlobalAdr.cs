@@ -34,4 +34,14 @@ public sealed class GlobalAdr
     /// Gets or sets repository instances linked to this global ADR.
     /// </summary>
     public ICollection<GlobalAdrInstance> Instances { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets immutable version snapshots for this global ADR.
+    /// </summary>
+    public ICollection<GlobalAdrVersion> Versions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets repository-to-library update proposals for this global ADR.
+    /// </summary>
+    public ICollection<GlobalAdrUpdateProposal> UpdateProposals { get; set; } = [];
 }

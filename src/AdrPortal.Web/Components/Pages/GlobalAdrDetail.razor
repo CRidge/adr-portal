@@ -1,0 +1,452 @@
+@page "/global/{GlobalId:guid}"
+@inject GlobalLibraryService GlobalLibraryService
+
+<PageTitle>@GetPageTitle()</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <section class="panel global-adr-page">
+        <h1>Global ADR detail</h1>
+        <p class="repo-status repo-status--error">@loadError</p>
+        <a class="inline-link" href="/global">Return to global library</a>
+    </section>
+}
+else if (detail is null)
+{
+    <section class="panel global-adr-page">
+        <h1>Global ADR detail</h1>
+        <p class="shell__hint">Loading global ADR details…</p>
+    </section>
+}
+else
+{
+    <section class="panel global-adr-page">
+        <header class="global-adr-page__header">
+            <div>
+                <p class="eyebrow">Global ADR template</p>
+                <h1>@detail.Title</h1>
+                <p class="lead">
+                    Global ID <code>@detail.GlobalId</code> · current version <strong>v@detail.CurrentVersion</strong>
+                </p>
+            </div>
+            <div class="global-adr-page__actions">
+                <a class="global-adr-page__link" href="/global">Back to global library</a>
+            </div>
+        </header>
+        <div class="global-adr-page__stats">
+            <span><strong>Pending proposals:</strong> @detail.PendingProposalCount</span>
+            <span><strong>Update available:</strong> @detail.UpdateAvailableCount</span>
+            <span><strong>Instances:</strong> @detail.Instances.Count</span>
+        </div>
+    </section>
+
+    <section class="panel global-adr-panel">
+        <header class="global-adr-panel__header">
+            <h2>Version history</h2>
+            <small>@detail.Versions.Count version(s)</small>
+        </header>
+        @if (detail.Versions.Count is 0)
+        {
+            <p class="global-adr-panel__empty">No versions registered yet.</p>
+        }
+        else
+        {
+            <ul class="global-adr-versions" role="list">
+                @foreach (var version in detail.Versions)
+                {
+                    <li class="global-adr-versions__row">
+                        <div>
+                            <strong>v@version.VersionNumber · @version.Title</strong>
+                            <span>@version.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm 'UTC'")</span>
+                        </div>
+                        <details>
+                            <summary>View markdown</summary>
+                            <pre>@version.MarkdownContent</pre>
+                        </details>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section class="panel global-adr-panel">
+        <header class="global-adr-panel__header">
+            <h2>Baseline diff viewer</h2>
+            <small>v@(detail.Versions.Count > 1 ? detail.Versions[1].VersionNumber : 0) → v@(detail.Versions.Count > 0 ? detail.Versions[0].VersionNumber : 0)</small>
+        </header>
+        <pre class="global-adr-diff">@detail.BaselineDiff</pre>
+    </section>
+
+    <section class="panel global-adr-panel">
+        <header class="global-adr-panel__header">
+            <h2>Repo → library proposals</h2>
+            <small>@detail.PendingProposalCount pending</small>
+        </header>
+        @if (!string.IsNullOrWhiteSpace(proposalMessage))
+        {
+            <p class="@(proposalError ? "repo-status repo-status--error" : "repo-status")">@proposalMessage</p>
+        }
+        @if (detail.Proposals.Count is 0)
+        {
+            <p class="global-adr-panel__empty">No proposals have been submitted for this global ADR.</p>
+        }
+        else
+        {
+            <table class="global-adr-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Repository ADR</th>
+                        <th scope="col">From version</th>
+                        <th scope="col">State</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var proposal in detail.Proposals)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@proposal.RepositoryDisplayName · ADR-@proposal.LocalAdrNumber.ToString("0000")</strong>
+                                <div class="global-adr-table__meta">@proposal.ProposedTitle</div>
+                            </td>
+                            <td>v@proposal.ProposedFromVersion</td>
+                            <td>@(proposal.IsPending ? "Pending" : "Reviewed")</td>
+                            <td>
+                                @if (proposal.IsPending)
+                                {
+                                    <div class="global-adr-table__actions">
+                                        <button type="button" class="global-adr-button global-adr-button--accept" @onclick="() => AcceptProposalAsync(proposal.Id)" disabled="@isApplyingProposal">
+                                            Accept
+                                        </button>
+                                        <button type="button" class="global-adr-button global-adr-button--reject" @onclick="() => DiscardProposalAsync(proposal.Id)" disabled="@isApplyingProposal">
+                                            Discard
+                                        </button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="shell__hint">No actions</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+
+    <section class="panel global-adr-panel">
+        <header class="global-adr-panel__header">
+            <h2>Library → repos instances</h2>
+            <small>@detail.UpdateAvailableCount update available</small>
+        </header>
+        @if (!string.IsNullOrWhiteSpace(instanceMessage))
+        {
+            <p class="@(instanceError ? "repo-status repo-status--error" : "repo-status")">@instanceMessage</p>
+        }
+        @if (detail.Instances.Count is 0)
+        {
+            <p class="global-adr-panel__empty">No repository instances are linked to this global ADR.</p>
+        }
+        else
+        {
+            <table class="global-adr-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Repository ADR</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Base version</th>
+                        <th scope="col">Flags</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var instance in detail.Instances)
+                    {
+                        <tr>
+                            <td>
+                                <a class="inline-link" href="@($"/repos/{instance.RepositoryId}/adr/{instance.LocalAdrNumber}")">
+                                    @instance.RepositoryDisplayName · ADR-@instance.LocalAdrNumber.ToString("0000")
+                                </a>
+                                <div class="global-adr-table__meta">@instance.RepoRelativePath</div>
+                            </td>
+                            <td>
+                                <span class="state-badge @instance.LastKnownStatusView.CssModifier">
+                                    @instance.LastKnownStatusView.Label
+                                </span>
+                            </td>
+                            <td>v@instance.BaseTemplateVersion</td>
+                            <td>
+                                <div class="global-adr-flags">
+                                    @if (instance.HasLocalChanges)
+                                    {
+                                        <span class="global-adr-flag global-adr-flag--local">HasLocalChanges</span>
+                                    }
+                                    @if (instance.UpdateAvailable)
+                                    {
+                                        <span class="global-adr-flag global-adr-flag--update">UpdateAvailable</span>
+                                    }
+                                    @if (!instance.HasLocalChanges && !instance.UpdateAvailable)
+                                    {
+                                        <span class="global-adr-flag">In sync</span>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                <div class="global-adr-table__actions">
+                                    <button type="button" class="global-adr-button global-adr-button--review" @onclick="() => ApplyInstanceUpdateAsync(instance.Id)" disabled="@isApplyingInstance">
+                                        Apply
+                                    </button>
+                                    <button type="button" class="global-adr-button global-adr-button--customise" @onclick="() => CustomiseInstanceUpdateAsync(instance.Id)" disabled="@isApplyingInstance">
+                                        Customise
+                                    </button>
+                                    <button type="button" class="global-adr-button" @onclick="() => DismissInstanceUpdateAsync(instance.Id)" disabled="@isApplyingInstance">
+                                        Dismiss
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+}
+
+@code
+{
+    [Parameter]
+    public Guid GlobalId { get; set; }
+
+    private GlobalAdrDetailProjection? detail;
+    private string? loadError;
+    private string? proposalMessage;
+    private bool proposalError;
+    private bool isApplyingProposal;
+    private string? instanceMessage;
+    private bool instanceError;
+    private bool isApplyingInstance;
+
+    /// <summary>
+    /// Loads global ADR detail projection.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    protected override async Task OnParametersSetAsync()
+    {
+        loadError = null;
+        detail = null;
+        proposalMessage = null;
+        proposalError = false;
+        isApplyingProposal = false;
+        instanceMessage = null;
+        instanceError = false;
+        isApplyingInstance = false;
+
+        try
+        {
+            detail = await GlobalLibraryService.GetDetailAsync(GlobalId, CancellationToken.None);
+            if (detail is null)
+            {
+                loadError = $"Global ADR '{GlobalId}' was not found.";
+            }
+        }
+        catch (InvalidOperationException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            loadError = exception.Message;
+        }
+    }
+
+    /// <summary>
+    /// Accepts a pending library update proposal.
+    /// </summary>
+    /// <param name="proposalId">Proposal identifier.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task AcceptProposalAsync(int proposalId)
+    {
+        if (isApplyingProposal)
+        {
+            return;
+        }
+
+        isApplyingProposal = true;
+        proposalMessage = null;
+        proposalError = false;
+
+        try
+        {
+            var result = await GlobalLibraryService.AcceptLibraryProposalAsync(GlobalId, proposalId, CancellationToken.None);
+            proposalMessage = result.Message;
+            detail = await GlobalLibraryService.GetDetailAsync(GlobalId, CancellationToken.None);
+        }
+        catch (InvalidOperationException exception)
+        {
+            proposalError = true;
+            proposalMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            proposalError = true;
+            proposalMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            proposalError = true;
+            proposalMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            proposalError = true;
+            proposalMessage = exception.Message;
+        }
+        finally
+        {
+            isApplyingProposal = false;
+        }
+    }
+
+    /// <summary>
+    /// Discards a pending library update proposal.
+    /// </summary>
+    /// <param name="proposalId">Proposal identifier.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task DiscardProposalAsync(int proposalId)
+    {
+        if (isApplyingProposal)
+        {
+            return;
+        }
+
+        isApplyingProposal = true;
+        proposalMessage = null;
+        proposalError = false;
+
+        try
+        {
+            var result = await GlobalLibraryService.DiscardLibraryProposalAsync(GlobalId, proposalId, CancellationToken.None);
+            proposalMessage = result.Message;
+            detail = await GlobalLibraryService.GetDetailAsync(GlobalId, CancellationToken.None);
+        }
+        catch (InvalidOperationException exception)
+        {
+            proposalError = true;
+            proposalMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            proposalError = true;
+            proposalMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            proposalError = true;
+            proposalMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            proposalError = true;
+            proposalMessage = exception.Message;
+        }
+        finally
+        {
+            isApplyingProposal = false;
+        }
+    }
+
+    /// <summary>
+    /// Applies template updates for one repository instance.
+    /// </summary>
+    /// <param name="instanceId">Instance identifier.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task ApplyInstanceUpdateAsync(int instanceId)
+    {
+        await RunInstanceActionAsync(() => GlobalLibraryService.ApplyUpdateToInstanceAsync(GlobalId, instanceId, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// Marks one repository instance as custom updated.
+    /// </summary>
+    /// <param name="instanceId">Instance identifier.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task CustomiseInstanceUpdateAsync(int instanceId)
+    {
+        await RunInstanceActionAsync(() => GlobalLibraryService.CustomiseInstanceUpdateAsync(GlobalId, instanceId, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// Dismisses update notification for one instance.
+    /// </summary>
+    /// <param name="instanceId">Instance identifier.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task DismissInstanceUpdateAsync(int instanceId)
+    {
+        await RunInstanceActionAsync(() => GlobalLibraryService.DismissInstanceUpdateAsync(GlobalId, instanceId, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// Runs one instance-level action with shared status handling.
+    /// </summary>
+    /// <param name="action">Action to execute.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task RunInstanceActionAsync(Func<Task<GlobalSyncActionResult>> action)
+    {
+        if (isApplyingInstance)
+        {
+            return;
+        }
+
+        isApplyingInstance = true;
+        instanceMessage = null;
+        instanceError = false;
+        try
+        {
+            var result = await action();
+            instanceMessage = result.Message;
+            detail = await GlobalLibraryService.GetDetailAsync(GlobalId, CancellationToken.None);
+        }
+        catch (InvalidOperationException exception)
+        {
+            instanceError = true;
+            instanceMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            instanceError = true;
+            instanceMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            instanceError = true;
+            instanceMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            instanceError = true;
+            instanceMessage = exception.Message;
+        }
+        finally
+        {
+            isApplyingInstance = false;
+        }
+    }
+
+    /// <summary>
+    /// Gets the page title text.
+    /// </summary>
+    /// <returns>Page title.</returns>
+    private string GetPageTitle()
+    {
+        return detail is null ? "Global ADR detail" : $"{detail.Title} · Global ADR";
+    }
+}

@@ -4,11 +4,11 @@
 <PageTitle>ADR Portal</PageTitle>
 
 <section class="panel">
-    <p class="eyebrow">Phase 7</p>
-    <h1>ADR transitions and global registration are active</h1>
+    <p class="eyebrow">Phase 8</p>
+    <h1>Global ADR library and sync workflows are active</h1>
     <p class="lead">
         Configure repositories under <a class="inline-link" href="/settings/repos">Settings → Repositories</a>,
-        browse ADRs from the sidebar, and use detail-page lifecycle actions to accept, reject, supersede, and deprecate ADRs.
+        review <a class="inline-link" href="/global">Global ADR library</a> routes, and use repository detail sync actions to propose or apply template updates.
     </p>
     <dl class="status-grid">
         <div>
@@ -27,5 +27,13 @@
             <dt>Managed repositories</dt>
             <dd>@RepositoryCatalogState.Repositories.Count</dd>
         </div>
+        <div>
+            <dt>Pending global sync</dt>
+            <dd>@RepositoryCatalogState.DashboardPendingCount</dd>
+        </div>
     </dl>
+    <p class="lead">
+        Next actions: open <a class="inline-link" href="/global">/global</a> for library-level counts,
+        then drill into <code>/global/{globalId}</code> for version history, baseline diff, and instance update scaffolding.
+    </p>
 </section>

@@ -73,6 +73,22 @@
     font-weight: 500;
 }
 
+.shell__nav-link--with-badge {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.shell__nav-badge {
+    background-color: #374151;
+    color: #d1d5db;
+    font-size: 0.73rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+}
+
 .shell__nav-link:hover {
     border-color: #334155;
     background-color: #1f2937;

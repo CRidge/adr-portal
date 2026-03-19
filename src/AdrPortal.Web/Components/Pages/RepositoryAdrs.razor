@@ -145,9 +145,21 @@ else
             repositoryAdrs = result.Value.Adrs;
             RebuildProjection();
         }
-        catch (Exception)
+        catch (InvalidOperationException exception)
         {
-            loadError = "Unable to load ADRs for this repository. Verify repository settings and file paths.";
+            loadError = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            loadError = exception.Message;
         }
     }
 

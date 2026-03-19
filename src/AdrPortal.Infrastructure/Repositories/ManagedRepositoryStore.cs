@@ -41,6 +41,31 @@ public sealed class ManagedRepositoryStore(AdrPortalDbContext dbContext) : IMana
     }
 
     /// <summary>
+    /// Gets managed repositories for a specific identifier set.
+    /// </summary>
+    /// <param name="repositoryIds">Repository identifiers to load.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Dictionary of repositories by identifier.</returns>
+    public async Task<IReadOnlyDictionary<int, ManagedRepository>> GetByIdsAsync(IReadOnlyCollection<int> repositoryIds, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(repositoryIds);
+        ct.ThrowIfCancellationRequested();
+
+        if (repositoryIds.Count is 0)
+        {
+            return new Dictionary<int, ManagedRepository>();
+        }
+
+        var repositoryIdSet = repositoryIds.Distinct().ToArray();
+        var repositories = await dbContext.ManagedRepositories
+            .AsNoTracking()
+            .Where(repository => repositoryIdSet.Contains(repository.Id))
+            .ToArrayAsync(ct);
+
+        return repositories.ToDictionary(repository => repository.Id);
+    }
+
+    /// <summary>
     /// Adds a managed repository to persistence.
     /// </summary>
     /// <param name="repository">Repository values to store.</param>

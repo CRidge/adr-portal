@@ -313,10 +313,23 @@ public sealed class AdrDocumentService(
                 Title = existingAdr.Title,
                 CurrentVersion = 1,
                 RegisteredAtUtc = nowUtc,
-                LastUpdatedAtUtc = nowUtc
+                LastUpdatedAtUtc = nowUtc,
+                Instances = [],
+                UpdateProposals = [],
+                Versions = []
             };
 
             _ = await globalAdrStore.AddAsync(newGlobalAdr, ct);
+            _ = await globalAdrStore.AddVersionAsync(
+                new GlobalAdrVersion
+                {
+                    GlobalId = newGlobalId,
+                    VersionNumber = 1,
+                    Title = existingAdr.Title,
+                    MarkdownContent = existingAdr.RawMarkdown,
+                    CreatedAtUtc = nowUtc
+                },
+                ct);
             _ = await globalAdrStore.UpsertInstanceAsync(
                 new GlobalAdrInstance
                 {
@@ -326,6 +339,8 @@ public sealed class AdrDocumentService(
                     RepoRelativePath = existingAdr.RepoRelativePath,
                     LastKnownStatus = AdrStatus.Accepted,
                     BaseTemplateVersion = 1,
+                    HasLocalChanges = false,
+                    UpdateAvailable = false,
                     LastReviewedAtUtc = nowUtc
                 },
                 ct);
@@ -363,6 +378,8 @@ public sealed class AdrDocumentService(
                 RepoRelativePath = existingAdr.RepoRelativePath,
                 LastKnownStatus = AdrStatus.Accepted,
                 BaseTemplateVersion = baseVersion,
+                HasLocalChanges = false,
+                UpdateAvailable = globalAdr.CurrentVersion > baseVersion,
                 LastReviewedAtUtc = nowUtc
             },
             ct);

@@ -2,6 +2,7 @@
 @inject AdrDocumentService AdrDocumentService
 @inject AdrListViewService AdrListViewService
 @inject IAdrMarkdownRenderer AdrMarkdownRenderer
+@inject GlobalLibraryService GlobalLibraryService
 @using AdrPortal.Core.Entities
 @using AdrPortal.Web.Services
 
@@ -77,6 +78,13 @@ else
                 <p>Global template</p>
                 <strong>@GetGlobalTemplateText(detail)</strong>
             </div>
+            @if (syncStatus is not null)
+            {
+                <div class="adr-detail__meta-item">
+                    <p>Sync status</p>
+                    <strong>@GetSyncStatusText(syncStatus)</strong>
+                </div>
+            }
         </section>
 
         @if (detail.Status is AdrStatus.Proposed or AdrStatus.Accepted)
@@ -127,6 +135,43 @@ else
             </section>
         }
 
+        @if (syncStatus is not null)
+        {
+            <section class="adr-detail__sync">
+                <h3>Global sync</h3>
+                <p class="adr-detail__sync-summary">
+                    Base template v@syncStatus.BaseTemplateVersion · Current global v@syncStatus.CurrentGlobalVersion
+                </p>
+                @if (!string.IsNullOrWhiteSpace(syncMessage))
+                {
+                    <p class="@(syncIsError ? "repo-status repo-status--error" : "repo-status")">@syncMessage</p>
+                }
+                @if (syncStatus.HasLocalChanges)
+                {
+                    <div class="adr-detail__transition-row">
+                        <button type="button"
+                                class="adr-detail__button adr-detail__button--propose"
+                                @onclick="ProposeLibraryUpdateAsync"
+                                disabled="@isApplyingSync || syncStatus.HasPendingProposal">
+                            @(syncStatus.HasPendingProposal ? "Proposal pending" : "Propose library update")
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <p class="shell__hint">No local template divergence detected for repo → library proposals.</p>
+                }
+
+                @if (syncStatus.UpdateAvailable)
+                {
+                    <p class="repo-status">
+                        A newer global template version is available. Review per-instance update options under
+                        <a class="inline-link" href="@($"/global/{syncStatus.GlobalId}")">/global/@syncStatus.GlobalId</a>.
+                    </p>
+                }
+            </section>
+        }
+
         @if (detail.SupersededByNumber is int supersededByNumber)
         {
             <p class="repo-status">
@@ -155,6 +200,10 @@ else
     private bool transitionIsError;
     private bool isApplyingTransition;
     private int? supersedeTargetNumber;
+    private RepositoryAdrSyncStatus? syncStatus;
+    private string? syncMessage;
+    private bool syncIsError;
+    private bool isApplyingSync;
 
     /// <summary>
     /// Loads repository and ADR detail values for the requested route.
@@ -169,6 +218,10 @@ else
         transitionIsError = false;
         isApplyingTransition = false;
         supersedeTargetNumber = null;
+        syncStatus = null;
+        syncMessage = null;
+        syncIsError = false;
+        isApplyingSync = false;
 
         try
         {
@@ -182,6 +235,7 @@ else
             repository = result.Value.Repository;
             detail = AdrListViewService.BuildDetail(result.Value.Adr, AdrMarkdownRenderer.Render(result.Value.Adr.RawMarkdown));
             supersedeTargetNumber = detail.SupersededByNumber;
+            syncStatus = await GlobalLibraryService.GetRepositoryAdrSyncStatusAsync(RepositoryId, result.Value.Adr, CancellationToken.None);
         }
         catch (InvalidOperationException exception)
         {
@@ -239,6 +293,7 @@ else
                 AdrMarkdownRenderer.Render(transitionResult.Adr.RawMarkdown));
             supersedeTargetNumber = detail.SupersededByNumber;
             transitionMessage = transitionResult.Message;
+            syncStatus = await GlobalLibraryService.GetRepositoryAdrSyncStatusAsync(RepositoryId, transitionResult.Adr, CancellationToken.None);
         }
         catch (InvalidOperationException exception)
         {
@@ -267,6 +322,61 @@ else
     }
 
     /// <summary>
+    /// Proposes a global library update from the current repository ADR.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task ProposeLibraryUpdateAsync()
+    {
+        if (detail is null || isApplyingSync || syncStatus is null)
+        {
+            return;
+        }
+
+        isApplyingSync = true;
+        syncMessage = null;
+        syncIsError = false;
+
+        try
+        {
+            var adrResult = await AdrDocumentService.GetRepositoryAdrAsync(RepositoryId, Number, CancellationToken.None);
+            if (adrResult is null)
+            {
+                syncIsError = true;
+                syncMessage = $"ADR-{Number:0000} was not found for repository '{RepositoryId}'.";
+                return;
+            }
+
+            var result = await GlobalLibraryService.ProposeLibraryUpdateAsync(RepositoryId, adrResult.Value.Adr, CancellationToken.None);
+            syncMessage = result.Message;
+            syncStatus = await GlobalLibraryService.GetRepositoryAdrSyncStatusAsync(RepositoryId, adrResult.Value.Adr, CancellationToken.None);
+        }
+        catch (InvalidOperationException exception)
+        {
+            syncIsError = true;
+            syncMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            syncIsError = true;
+            syncMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            syncIsError = true;
+            syncMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            syncIsError = true;
+            syncMessage = exception.Message;
+        }
+        finally
+        {
+            isApplyingSync = false;
+        }
+    }
+
+    /// <summary>
     /// Formats a list of people for compact metadata display.
     /// </summary>
     /// <param name="values">Input values.</param>
@@ -289,6 +399,31 @@ else
         }
 
         return $"{viewModel.GlobalId} · v{viewModel.GlobalVersion}";
+    }
+
+    /// <summary>
+    /// Formats sync status text for metadata.
+    /// </summary>
+    /// <param name="status">Sync status projection.</param>
+    /// <returns>Sync summary text.</returns>
+    private static string GetSyncStatusText(RepositoryAdrSyncStatus status)
+    {
+        if (status.HasLocalChanges && status.UpdateAvailable)
+        {
+            return "Has local changes · update available";
+        }
+
+        if (status.HasLocalChanges)
+        {
+            return "Has local changes";
+        }
+
+        if (status.UpdateAvailable)
+        {
+            return "Update available";
+        }
+
+        return "In sync";
     }
 
     /// <summary>

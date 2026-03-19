@@ -670,6 +670,25 @@ Updated decision details.
             return Task.FromResult(repositories);
         }
 
+        public Task<IReadOnlyDictionary<int, ManagedRepository>> GetByIdsAsync(IReadOnlyCollection<int> repositoryIds, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(repositoryIds);
+            ct.ThrowIfCancellationRequested();
+
+            if (repository is null)
+            {
+                return Task.FromResult<IReadOnlyDictionary<int, ManagedRepository>>(new Dictionary<int, ManagedRepository>());
+            }
+
+            if (!repositoryIds.Contains(repository.Id))
+            {
+                return Task.FromResult<IReadOnlyDictionary<int, ManagedRepository>>(new Dictionary<int, ManagedRepository>());
+            }
+
+            return Task.FromResult<IReadOnlyDictionary<int, ManagedRepository>>(
+                new Dictionary<int, ManagedRepository> { [repository.Id] = repository });
+        }
+
         public Task<ManagedRepository> AddAsync(ManagedRepository addRepository, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
@@ -761,6 +780,8 @@ Updated decision details.
     private sealed class FakeGlobalAdrStore : IGlobalAdrStore
     {
         private readonly Dictionary<Guid, GlobalAdr> globalAdrs;
+        private readonly Dictionary<Guid, List<GlobalAdrVersion>> versionsByGlobalId = [];
+        private readonly Dictionary<Guid, List<GlobalAdrUpdateProposal>> proposalsByGlobalId = [];
         private readonly Dictionary<(Guid GlobalId, int RepositoryId, int LocalAdrNumber), GlobalAdrInstance> instances = [];
 
         public FakeGlobalAdrStore(IEnumerable<GlobalAdr>? seedGlobalAdrs = null)
@@ -774,11 +795,58 @@ Updated decision details.
         public GlobalAdr? LastAddedGlobalAdr { get; private set; }
         public GlobalAdrInstance? LastUpsertedInstance { get; private set; }
 
+        public Task<IReadOnlyList<GlobalAdr>> GetAllAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult<IReadOnlyList<GlobalAdr>>(globalAdrs.Values.OrderBy(item => item.Title).ToArray());
+        }
+
         public Task<GlobalAdr?> GetByIdAsync(Guid globalId, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             _ = globalAdrs.TryGetValue(globalId, out var globalAdr);
             return Task.FromResult(globalAdr);
+        }
+
+        public Task<IReadOnlyList<GlobalAdrVersion>> GetVersionsAsync(Guid globalId, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!versionsByGlobalId.TryGetValue(globalId, out var rows))
+            {
+                return Task.FromResult<IReadOnlyList<GlobalAdrVersion>>([]);
+            }
+
+            return Task.FromResult<IReadOnlyList<GlobalAdrVersion>>(rows.OrderByDescending(item => item.VersionNumber).ToArray());
+        }
+
+        public Task<IReadOnlyList<GlobalAdrUpdateProposal>> GetUpdateProposalsAsync(Guid globalId, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!proposalsByGlobalId.TryGetValue(globalId, out var rows))
+            {
+                return Task.FromResult<IReadOnlyList<GlobalAdrUpdateProposal>>([]);
+            }
+
+            return Task.FromResult<IReadOnlyList<GlobalAdrUpdateProposal>>(rows.OrderByDescending(item => item.CreatedAtUtc).ToArray());
+        }
+
+        public Task<IReadOnlyList<GlobalAdrInstance>> GetInstancesAsync(Guid globalId, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var rows = instances.Values
+                .Where(item => item.GlobalId == globalId)
+                .OrderBy(item => item.RepositoryId)
+                .ThenBy(item => item.LocalAdrNumber)
+                .ToArray();
+            return Task.FromResult<IReadOnlyList<GlobalAdrInstance>>(rows);
+        }
+
+        public Task<int> GetDashboardPendingCountAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var pendingProposals = proposalsByGlobalId.Values.SelectMany(item => item).Count(item => item.IsPending);
+            var updateAvailableInstances = instances.Values.Count(item => item.UpdateAvailable);
+            return Task.FromResult(pendingProposals + updateAvailableInstances);
         }
 
         public Task<GlobalAdr> AddAsync(GlobalAdr globalAdr, CancellationToken ct)
@@ -790,6 +858,80 @@ Updated decision details.
             LastAddedGlobalAdr = globalAdr;
             globalAdrs[globalAdr.GlobalId] = globalAdr;
             return Task.FromResult(globalAdr);
+        }
+
+        public Task<GlobalAdr?> UpdateAsync(GlobalAdr globalAdr, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(globalAdr);
+            ct.ThrowIfCancellationRequested();
+
+            if (!globalAdrs.ContainsKey(globalAdr.GlobalId))
+            {
+                return Task.FromResult<GlobalAdr?>(null);
+            }
+
+            globalAdrs[globalAdr.GlobalId] = globalAdr;
+            return Task.FromResult<GlobalAdr?>(globalAdr);
+        }
+
+        public Task<GlobalAdrVersion> AddVersionAsync(GlobalAdrVersion version, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(version);
+            ct.ThrowIfCancellationRequested();
+
+            if (!versionsByGlobalId.TryGetValue(version.GlobalId, out var rows))
+            {
+                rows = [];
+                versionsByGlobalId[version.GlobalId] = rows;
+            }
+
+            if (version.Id <= 0)
+            {
+                version.Id = rows.Count + 1;
+            }
+
+            rows.Add(version);
+            return Task.FromResult(version);
+        }
+
+        public Task<GlobalAdrUpdateProposal> AddUpdateProposalAsync(GlobalAdrUpdateProposal proposal, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(proposal);
+            ct.ThrowIfCancellationRequested();
+
+            if (!proposalsByGlobalId.TryGetValue(proposal.GlobalId, out var rows))
+            {
+                rows = [];
+                proposalsByGlobalId[proposal.GlobalId] = rows;
+            }
+
+            if (proposal.Id <= 0)
+            {
+                proposal.Id = rows.Count + 1;
+            }
+
+            rows.Add(proposal);
+            return Task.FromResult(proposal);
+        }
+
+        public Task<GlobalAdrUpdateProposal?> UpdateProposalAsync(GlobalAdrUpdateProposal proposal, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(proposal);
+            ct.ThrowIfCancellationRequested();
+
+            if (!proposalsByGlobalId.TryGetValue(proposal.GlobalId, out var rows))
+            {
+                return Task.FromResult<GlobalAdrUpdateProposal?>(null);
+            }
+
+            var index = rows.FindIndex(item => item.Id == proposal.Id);
+            if (index < 0)
+            {
+                return Task.FromResult<GlobalAdrUpdateProposal?>(null);
+            }
+
+            rows[index] = proposal;
+            return Task.FromResult<GlobalAdrUpdateProposal?>(proposal);
         }
 
         public Task<GlobalAdrInstance> UpsertInstanceAsync(GlobalAdrInstance instance, CancellationToken ct)
@@ -806,6 +948,8 @@ Updated decision details.
                 existing.RepoRelativePath = instance.RepoRelativePath;
                 existing.LastKnownStatus = instance.LastKnownStatus;
                 existing.BaseTemplateVersion = instance.BaseTemplateVersion;
+                existing.HasLocalChanges = instance.HasLocalChanges;
+                existing.UpdateAvailable = instance.UpdateAvailable;
                 existing.LastReviewedAtUtc = instance.LastReviewedAtUtc;
                 return Task.FromResult(existing);
             }
