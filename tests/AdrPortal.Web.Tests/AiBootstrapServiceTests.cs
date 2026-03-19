@@ -91,10 +91,45 @@ public class AiBootstrapServiceTests
         await Assert.That(result.CreatedAdrs[0].DecisionMakers[0]).IsEqualTo("ADR Portal AI Bootstrap");
         await Assert.That(result.CreatedAdrs[0].RawMarkdown.Contains("## Context and Problem Statement", StringComparison.Ordinal)).IsTrue();
         await Assert.That(result.QueuedItems.Count).IsEqualTo(2);
+        await Assert.That(result.QueuedItems[0].Trigger).IsEqualTo(GitPrWorkflowTrigger.AiBootstrap);
+        await Assert.That(result.QueuedItems[0].Action).IsEqualTo(GitPrWorkflowAction.CreateOrUpdatePullRequest);
+        await Assert.That(result.QueuedItems[0].RepoRelativePath).IsEqualTo(result.CreatedAdrs[0].RepoRelativePath);
+        await Assert.That(result.QueuedItems[0].BaseBranchName).IsEqualTo("master");
+        await Assert.That(result.QueuedItems[0].RepositoryRemoteUrl).IsEqualTo(repository.GitRemoteUrl);
         await Assert.That(result.QueuedItems[0].BranchName).IsEqualTo("proposed/adr-0001-use-dotnet-aspire-local-orchestration");
         await Assert.That(result.QueuedItems[1].BranchName).IsEqualTo("proposed/adr-0002-persist-portal-configuration-efcore-sqlite");
         await Assert.That(queue.Items.Count).IsEqualTo(2);
         await Assert.That(fileRepository.WrittenAdrs.Count).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task AcceptSelectedProposalsAsync_ThrowsWhenGitRemoteUrlMissing()
+    {
+        var repository = CreateRepository(106, @"C:\repos\contoso\missing-remote");
+        repository.GitRemoteUrl = null;
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var proposalSet = CreateProposalSet(repository.RootPath, [
+            CreateProposal("p1", "Use Aspire", "use-aspire")
+        ]);
+        var aiService = new FakeAiService(proposalSet);
+        var queue = new RecordingQueue();
+        var service = new AiBootstrapService(managedStore, factory, aiService, queue);
+
+        Exception? exception = null;
+        try
+        {
+            _ = await service.AcceptSelectedProposalsAsync(repository.Id, proposalSet, ["p1"], CancellationToken.None);
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception is InvalidOperationException).IsTrue();
+        await Assert.That(exception!.Message.Contains("Git remote URL", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(queue.Items.Count).IsEqualTo(0);
     }
 
     [Test]
@@ -185,6 +220,7 @@ public class AiBootstrapServiceTests
             DisplayName = $"repo-{id}",
             RootPath = rootPath,
             AdrFolder = "docs/adr",
+            GitRemoteUrl = $"https://github.com/contoso/repo-{id}.git",
             IsActive = true
         };
     }
@@ -359,6 +395,40 @@ public class AiBootstrapServiceTests
             ct.ThrowIfCancellationRequested();
             Items.Add(item);
             return Task.CompletedTask;
+        }
+
+        public Task UpsertAsync(GitPrWorkflowQueueItem item, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            ct.ThrowIfCancellationRequested();
+            var existingIndex = Items.FindIndex(existing => existing.Id == item.Id);
+            if (existingIndex >= 0)
+            {
+                Items[existingIndex] = item;
+            }
+            else
+            {
+                Items.Add(item);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<GitPrWorkflowQueueItem?> GetLatestForAdrAsync(int repositoryId, int adrNumber, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var item = Items
+                .Where(existing => existing.RepositoryId == repositoryId && existing.AdrNumber == adrNumber)
+                .OrderByDescending(existing => existing.EnqueuedAtUtc)
+                .ThenByDescending(existing => existing.Id)
+                .FirstOrDefault();
+            return Task.FromResult(item);
+        }
+
+        public Task<GitPrWorkflowQueueItem?> GetByIdAsync(Guid queueItemId, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(Items.FirstOrDefault(existing => existing.Id == queueItemId));
         }
     }
 }

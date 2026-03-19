@@ -1,5 +1,6 @@
 using AdrPortal.Core.Entities;
 using AdrPortal.Core.Repositories;
+using AdrPortal.Core.Workflows;
 
 namespace AdrPortal.Web.Services;
 
@@ -9,8 +10,11 @@ namespace AdrPortal.Web.Services;
 public sealed class GlobalLibraryService(
     IGlobalAdrStore globalAdrStore,
     IManagedRepositoryStore managedRepositoryStore,
-    IMadrRepositoryFactory madrRepositoryFactory)
+    IMadrRepositoryFactory madrRepositoryFactory,
+    IGitPrWorkflowQueue? gitPrWorkflowQueue = null,
+    IGitPrWorkflowProcessor? gitPrWorkflowProcessor = null)
 {
+    private const string DefaultBaseBranchName = "master";
     /// <summary>
     /// Gets projected overview data for the global ADR library.
     /// </summary>
@@ -448,6 +452,26 @@ public sealed class GlobalLibraryService(
         var globalAdr = await globalAdrStore.GetByIdAsync(globalId, ct)
             ?? throw new InvalidOperationException($"Global ADR '{globalId}' was not found.");
 
+        var repository = await managedRepositoryStore.GetByIdAsync(instance.RepositoryId, ct)
+            ?? throw new InvalidOperationException($"Repository '{instance.RepositoryId}' was not found.");
+        var repositoryAdrStore = madrRepositoryFactory.Create(repository);
+        var adr = await repositoryAdrStore.GetByNumberAsync(instance.LocalAdrNumber, ct)
+            ?? throw new InvalidOperationException(
+                $"ADR-{instance.LocalAdrNumber:0000} was not found in repository '{repository.DisplayName}'.");
+        var templateVersion = await ResolveVersionAsync(globalId, globalAdr.CurrentVersion, ct)
+            ?? throw new InvalidOperationException(
+                $"Global ADR '{globalId}' version '{globalAdr.CurrentVersion}' is not available.");
+
+        var updatedAdr = adr with
+        {
+            Title = templateVersion.Title,
+            RawMarkdown = templateVersion.MarkdownContent,
+            GlobalVersion = templateVersion.VersionNumber,
+            Status = AdrStatus.Accepted
+        };
+        var persistedAdr = await repositoryAdrStore.WriteAsync(updatedAdr, ct);
+        await QueueAndProcessAsync(repository, persistedAdr, ct);
+
         _ = await globalAdrStore.UpsertInstanceAsync(
             CopyInstance(
                 instance,
@@ -641,5 +665,69 @@ public sealed class GlobalLibraryService(
             IsPending = isPending,
             CreatedAtUtc = source.CreatedAtUtc
         };
+    }
+
+    private async Task QueueAndProcessAsync(ManagedRepository repository, Adr adr, CancellationToken ct)
+    {
+        if (gitPrWorkflowQueue is null)
+        {
+            return;
+        }
+
+        var queueItem = await BuildQueueItemAsync(repository, adr, ct);
+        await gitPrWorkflowQueue.EnqueueAsync(queueItem, ct);
+        if (gitPrWorkflowProcessor is not null)
+        {
+            _ = await gitPrWorkflowProcessor.ProcessAndUpdateQueueAsync(queueItem.Id, ct);
+        }
+    }
+
+    private async Task<GitPrWorkflowQueueItem> BuildQueueItemAsync(ManagedRepository repository, Adr adr, CancellationToken ct)
+    {
+        var branchName = $"proposed/adr-{adr.Number:0000}-{adr.Slug}";
+        var pullRequestUrl = default(Uri);
+        var pullRequestNumber = default(int?);
+        var commitSha = default(string);
+
+        var previousQueueItem = await gitPrWorkflowQueue!.GetLatestForAdrAsync(repository.Id, adr.Number, ct);
+        if (previousQueueItem is not null)
+        {
+            branchName = previousQueueItem.BranchName;
+            pullRequestUrl = previousQueueItem.PullRequestUrl;
+            pullRequestNumber = previousQueueItem.PullRequestNumber;
+            commitSha = previousQueueItem.CommitSha;
+        }
+
+        return new GitPrWorkflowQueueItem
+        {
+            RepositoryId = repository.Id,
+            RepositoryDisplayName = repository.DisplayName,
+            RepositoryRootPath = repository.RootPath,
+            RepositoryRemoteUrl = ResolveRepositoryRemoteUrl(repository.GitRemoteUrl),
+            RepoRelativePath = adr.RepoRelativePath,
+            AdrNumber = adr.Number,
+            AdrSlug = adr.Slug,
+            AdrTitle = adr.Title,
+            AdrStatus = adr.Status.ToString(),
+            Trigger = GitPrWorkflowTrigger.GlobalLibraryApply,
+            Action = GitPrWorkflowAction.CreateOrUpdatePullRequest,
+            BranchName = branchName,
+            BaseBranchName = DefaultBaseBranchName,
+            PullRequestUrl = pullRequestUrl,
+            PullRequestNumber = pullRequestNumber,
+            CommitSha = commitSha,
+            EnqueuedAtUtc = DateTime.UtcNow
+        };
+    }
+
+    private static string ResolveRepositoryRemoteUrl(string? gitRemoteUrl)
+    {
+        if (string.IsNullOrWhiteSpace(gitRemoteUrl))
+        {
+            throw new InvalidOperationException(
+                "Git remote URL is required to run Git/PR workflow automation. Configure a GitHub remote in repository settings.");
+        }
+
+        return gitRemoteUrl.Trim();
     }
 }

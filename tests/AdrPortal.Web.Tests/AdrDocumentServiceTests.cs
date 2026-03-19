@@ -1,5 +1,6 @@
 using AdrPortal.Core.Entities;
 using AdrPortal.Core.Repositories;
+using AdrPortal.Core.Workflows;
 using AdrPortal.Web.Components.Pages;
 using AdrPortal.Web.Services;
 
@@ -452,8 +453,101 @@ Updated decision details.
         await Assert.That(result).IsNotNull();
         await Assert.That(result!.Adr.Status).IsEqualTo(AdrStatus.Rejected);
         await Assert.That(result.Adr.SupersededByNumber).IsNull();
-        await Assert.That(fileRepository.LastWrittenAdr).IsNotNull();
-        await Assert.That(fileRepository.LastWrittenAdr!.Status).IsEqualTo(AdrStatus.Rejected);
+        await Assert.That(fileRepository.WriteCallCount).IsEqualTo(0);
+        var movedAdr = await fileRepository.GetByNumberAsync(proposedAdr.Number, CancellationToken.None);
+        await Assert.That(movedAdr).IsNotNull();
+        await Assert.That(movedAdr!.Status).IsEqualTo(AdrStatus.Rejected);
+        await Assert.That(movedAdr.RepoRelativePath.Contains("/rejected/", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task CreateAdrAsync_EnqueuesWorkflowItemWithExpectedMetadata()
+    {
+        var repository = CreateRepository(id: 110);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository(Array.Empty<Adr>());
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var queue = new RecordingQueue();
+        var service = new AdrDocumentService(managedStore, factory, globalStore, queue, gitPrWorkflowProcessor: null);
+        var input = new AdrEditorInput
+        {
+            Title = "Use Queue",
+            Slug = "use-queue",
+            Status = AdrStatus.Proposed,
+            Date = new DateOnly(2026, 3, 20),
+            DecisionMakers = ["Board"],
+            Consulted = [],
+            Informed = [],
+            BodyMarkdown = "## Context"
+        };
+
+        var result = await service.CreateAdrAsync(repository.Id, input, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(queue.Items.Count).IsEqualTo(1);
+        var queued = queue.Items.Single();
+        await Assert.That(queued.RepositoryId).IsEqualTo(repository.Id);
+        await Assert.That(queued.Trigger).IsEqualTo(GitPrWorkflowTrigger.RepositoryAdrPersist);
+        await Assert.That(queued.Action).IsEqualTo(GitPrWorkflowAction.CreateOrUpdatePullRequest);
+        await Assert.That(queued.BranchName).IsEqualTo("proposed/adr-0001-use-queue");
+        await Assert.That(queued.RepoRelativePath).IsEqualTo("docs/adr/adr-0001-use-queue.md");
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Accept_EnqueuesMergeWorkflowItem()
+    {
+        var repository = CreateRepository(id: 111);
+        var proposedAdr = CreateAdr(number: 7, title: "Use Feature Flags", slug: "use-feature-flags", status: AdrStatus.Proposed);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([proposedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var queue = new RecordingQueue();
+        await queue.EnqueueAsync(
+            CreateQueueItem(repository.Id, proposedAdr.Number, proposedAdr.Slug, GitPrWorkflowAction.CreateOrUpdatePullRequest) with
+            {
+                PullRequestNumber = 17,
+                PullRequestUrl = new Uri("https://github.com/contoso/adr-portal/pull/17")
+            },
+            CancellationToken.None);
+        var service = new AdrDocumentService(managedStore, factory, globalStore, queue, gitPrWorkflowProcessor: null);
+
+        var result = await service.TransitionAdrAsync(repository.Id, proposedAdr.Number, AdrTransitionAction.Accept, supersededByNumber: null, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        var queued = queue.Items.Last();
+        await Assert.That(queued.Action).IsEqualTo(GitPrWorkflowAction.MergePullRequest);
+        await Assert.That(queued.Trigger).IsEqualTo(GitPrWorkflowTrigger.RepositoryAdrTransition);
+        await Assert.That(queued.PullRequestNumber).IsEqualTo(17);
+    }
+
+    [Test]
+    public async Task TransitionAdrAsync_Reject_EnqueuesCloseWorkflowItem()
+    {
+        var repository = CreateRepository(id: 112);
+        var proposedAdr = CreateAdr(number: 8, title: "Use WCF", slug: "use-wcf", status: AdrStatus.Proposed);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([proposedAdr]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var globalStore = new FakeGlobalAdrStore();
+        var queue = new RecordingQueue();
+        await queue.EnqueueAsync(
+            CreateQueueItem(repository.Id, proposedAdr.Number, proposedAdr.Slug, GitPrWorkflowAction.CreateOrUpdatePullRequest) with
+            {
+                PullRequestNumber = 27,
+                PullRequestUrl = new Uri("https://github.com/contoso/adr-portal/pull/27")
+            },
+            CancellationToken.None);
+        var service = new AdrDocumentService(managedStore, factory, globalStore, queue, gitPrWorkflowProcessor: null);
+
+        var result = await service.TransitionAdrAsync(repository.Id, proposedAdr.Number, AdrTransitionAction.Reject, supersededByNumber: null, CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        var queued = queue.Items.Last();
+        await Assert.That(queued.Action).IsEqualTo(GitPrWorkflowAction.ClosePullRequest);
+        await Assert.That(queued.Trigger).IsEqualTo(GitPrWorkflowTrigger.RepositoryAdrTransition);
+        await Assert.That(queued.PullRequestNumber).IsEqualTo(27);
     }
 
     [Test]
@@ -632,6 +726,7 @@ Updated decision details.
             DisplayName = "contoso/adr-portal",
             RootPath = @"C:\repos\contoso\adr-portal",
             AdrFolder = "docs/adr",
+            GitRemoteUrl = "https://github.com/contoso/adr-portal.git",
             IsActive = true
         };
     }
@@ -647,6 +742,28 @@ Updated decision details.
             Date = new DateOnly(2026, 3, 19),
             RepoRelativePath = $"docs/adr/adr-{number:0000}-{slug}.md",
             RawMarkdown = $"# {title}"
+        };
+    }
+
+    private static GitPrWorkflowQueueItem CreateQueueItem(int repositoryId, int adrNumber, string adrSlug, GitPrWorkflowAction action)
+    {
+        return new GitPrWorkflowQueueItem
+        {
+            Id = Guid.NewGuid(),
+            RepositoryId = repositoryId,
+            RepositoryDisplayName = "contoso/adr-portal",
+            RepositoryRootPath = @"C:\repos\contoso\adr-portal",
+            RepositoryRemoteUrl = "https://github.com/contoso/adr-portal.git",
+            RepoRelativePath = $"docs/adr/adr-{adrNumber:0000}-{adrSlug}.md",
+            AdrNumber = adrNumber,
+            AdrSlug = adrSlug,
+            AdrTitle = "Seeded ADR",
+            AdrStatus = "Proposed",
+            Trigger = GitPrWorkflowTrigger.RepositoryAdrPersist,
+            Action = action,
+            BranchName = $"proposed/adr-{adrNumber:0000}-{adrSlug}",
+            BaseBranchName = "master",
+            EnqueuedAtUtc = DateTime.UtcNow
         };
     }
 
@@ -719,6 +836,53 @@ Updated decision details.
         }
     }
 
+    private sealed class RecordingQueue : IGitPrWorkflowQueue
+    {
+        public List<GitPrWorkflowQueueItem> Items { get; } = [];
+
+        public Task EnqueueAsync(GitPrWorkflowQueueItem item, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            ct.ThrowIfCancellationRequested();
+            Items.Add(item);
+            return Task.CompletedTask;
+        }
+
+        public Task UpsertAsync(GitPrWorkflowQueueItem item, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            ct.ThrowIfCancellationRequested();
+            var index = Items.FindIndex(existing => existing.Id == item.Id);
+            if (index >= 0)
+            {
+                Items[index] = item;
+            }
+            else
+            {
+                Items.Add(item);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<GitPrWorkflowQueueItem?> GetLatestForAdrAsync(int repositoryId, int adrNumber, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var item = Items
+                .Where(existing => existing.RepositoryId == repositoryId && existing.AdrNumber == adrNumber)
+                .OrderByDescending(existing => existing.EnqueuedAtUtc)
+                .ThenByDescending(existing => existing.Id)
+                .FirstOrDefault();
+            return Task.FromResult(item);
+        }
+
+        public Task<GitPrWorkflowQueueItem?> GetByIdAsync(Guid queueItemId, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(Items.FirstOrDefault(existing => existing.Id == queueItemId));
+        }
+    }
+
     private sealed class FakeAdrFileRepository(IReadOnlyList<Adr> adrs) : IAdrFileRepository
     {
         public int GetAllCallCount { get; private set; }
@@ -765,6 +929,20 @@ Updated decision details.
         public Task MoveToRejectedAsync(int number, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            var existingIndex = store.FindIndex(item => item.Number == number);
+            if (existingIndex < 0)
+            {
+                throw new InvalidOperationException($"ADR-{number:0000} was not found.");
+            }
+
+            var existing = store[existingIndex];
+            var rejectedPath = $"docs/adr/rejected/adr-{existing.Number:0000}-{existing.Slug}.md";
+            store[existingIndex] = existing with
+            {
+                Status = AdrStatus.Rejected,
+                RepoRelativePath = rejectedPath,
+                SupersededByNumber = null
+            };
             return Task.CompletedTask;
         }
 

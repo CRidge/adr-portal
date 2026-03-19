@@ -14,9 +14,11 @@ public sealed class AiBootstrapService(
     IManagedRepositoryStore managedRepositoryStore,
     IMadrRepositoryFactory madrRepositoryFactory,
     IAiService aiService,
-    IGitPrWorkflowQueue gitPrWorkflowQueue)
+    IGitPrWorkflowQueue gitPrWorkflowQueue,
+    IGitPrWorkflowProcessor? gitPrWorkflowProcessor = null)
 {
     private static readonly Regex SlugSanitizerRegex = new(@"[^a-z0-9]+", RegexOptions.Compiled);
+    private const string DefaultBaseBranchName = "master";
 
     /// <summary>
     /// Gets repository bootstrap context including whether ADR files already exist.
@@ -150,15 +152,28 @@ public sealed class AiBootstrapService(
             var queueItem = new GitPrWorkflowQueueItem
             {
                 RepositoryId = context.Repository.Id,
+                RepositoryDisplayName = context.Repository.DisplayName,
+                RepositoryRootPath = context.Repository.RootPath,
+                RepositoryRemoteUrl = ResolveRepositoryRemoteUrl(context.Repository.GitRemoteUrl),
+                RepoRelativePath = persisted.RepoRelativePath,
                 AdrNumber = persisted.Number,
                 AdrSlug = persisted.Slug,
                 AdrTitle = persisted.Title,
-                Source = "phase-9-ai-bootstrap",
+                AdrStatus = persisted.Status.ToString(),
+                Trigger = GitPrWorkflowTrigger.AiBootstrap,
+                Action = GitPrWorkflowAction.CreateOrUpdatePullRequest,
                 BranchName = $"proposed/adr-{persisted.Number:0000}-{persisted.Slug}",
+                BaseBranchName = DefaultBaseBranchName,
                 EnqueuedAtUtc = DateTime.UtcNow
             };
             await gitPrWorkflowQueue.EnqueueAsync(queueItem, ct);
-            queuedItems.Add(queueItem);
+            var processedItem = queueItem;
+            if (gitPrWorkflowProcessor is not null)
+            {
+                processedItem = await gitPrWorkflowProcessor.ProcessAndUpdateQueueAsync(queueItem.Id, ct);
+            }
+
+            queuedItems.Add(processedItem);
         }
 
         return new AiBootstrapAcceptResult
@@ -241,6 +256,17 @@ public sealed class AiBootstrapService(
         }
 
         return string.Join('/', segments);
+    }
+
+    private static string ResolveRepositoryRemoteUrl(string? gitRemoteUrl)
+    {
+        if (string.IsNullOrWhiteSpace(gitRemoteUrl))
+        {
+            throw new InvalidOperationException(
+                "Git remote URL is required to run Git/PR workflow automation. Configure a GitHub remote in repository settings.");
+        }
+
+        return gitRemoteUrl.Trim();
     }
 
     private static string CreateUniqueSlug(string suggestedSlug, ISet<string> usedSlugs)

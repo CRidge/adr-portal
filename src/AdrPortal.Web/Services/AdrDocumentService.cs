@@ -1,5 +1,6 @@
 using AdrPortal.Core.Entities;
 using AdrPortal.Core.Repositories;
+using AdrPortal.Core.Workflows;
 using System.Text.RegularExpressions;
 
 namespace AdrPortal.Web.Services;
@@ -10,8 +11,11 @@ namespace AdrPortal.Web.Services;
 public sealed class AdrDocumentService(
     IManagedRepositoryStore managedRepositoryStore,
     IMadrRepositoryFactory madrRepositoryFactory,
-    IGlobalAdrStore globalAdrStore)
+    IGlobalAdrStore globalAdrStore,
+    IGitPrWorkflowQueue? gitPrWorkflowQueue = null,
+    IGitPrWorkflowProcessor? gitPrWorkflowProcessor = null)
 {
+    private const string DefaultBaseBranchName = "master";
     private static readonly Regex SlugRegex = new(
         @"^[a-z0-9][a-z0-9-]*$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -110,6 +114,12 @@ public sealed class AdrDocumentService(
         var nextNumber = await adrRepository.GetNextNumberAsync(ct);
         var adrToWrite = BuildAdrForWrite(repository, existingAdr: null, nextNumber, input);
         var persistedAdr = await adrRepository.WriteAsync(adrToWrite, ct);
+        await QueueAndProcessAsync(
+            repository,
+            persistedAdr,
+            GitPrWorkflowTrigger.RepositoryAdrPersist,
+            GitPrWorkflowAction.CreateOrUpdatePullRequest,
+            ct);
 
         return new AdrPersistResult
         {
@@ -147,6 +157,12 @@ public sealed class AdrDocumentService(
 
         var adrToWrite = BuildAdrForWrite(repository, existingAdr, number, input);
         var persistedAdr = await adrRepository.WriteAsync(adrToWrite, ct);
+        await QueueAndProcessAsync(
+            repository,
+            persistedAdr,
+            GitPrWorkflowTrigger.RepositoryAdrPersist,
+            GitPrWorkflowAction.CreateOrUpdatePullRequest,
+            ct);
 
         return new AdrPersistResult
         {
@@ -187,7 +203,32 @@ public sealed class AdrDocumentService(
         }
 
         var transition = await BuildTransitionAsync(repository, existingAdr, action, supersededByNumber, ct);
-        var persistedAdr = await adrRepository.WriteAsync(transition.Adr, ct);
+        Adr persistedAdr;
+        if (action is AdrTransitionAction.Reject)
+        {
+            await adrRepository.MoveToRejectedAsync(existingAdr.Number, ct);
+            persistedAdr = await adrRepository.GetByNumberAsync(existingAdr.Number, ct)
+                ?? throw new InvalidOperationException($"ADR-{existingAdr.Number:0000} could not be resolved after rejection.");
+        }
+        else
+        {
+            persistedAdr = await adrRepository.WriteAsync(transition.Adr, ct);
+        }
+
+        var workflowAction = action switch
+        {
+            AdrTransitionAction.Accept => GitPrWorkflowAction.MergePullRequest,
+            AdrTransitionAction.Reject => GitPrWorkflowAction.ClosePullRequest,
+            AdrTransitionAction.Supersede => GitPrWorkflowAction.CreateOrUpdatePullRequest,
+            AdrTransitionAction.Deprecate => GitPrWorkflowAction.CreateOrUpdatePullRequest,
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unsupported transition action.")
+        };
+        await QueueAndProcessAsync(
+            repository,
+            persistedAdr,
+            GitPrWorkflowTrigger.RepositoryAdrTransition,
+            workflowAction,
+            ct);
 
         return new AdrTransitionResult
         {
@@ -524,5 +565,79 @@ public sealed class AdrDocumentService(
         }
 
         throw new ArgumentException($"{fieldName} cannot contain raw HTML markup.");
+    }
+
+    private async Task QueueAndProcessAsync(
+        ManagedRepository repository,
+        Adr adr,
+        GitPrWorkflowTrigger trigger,
+        GitPrWorkflowAction action,
+        CancellationToken ct)
+    {
+        if (gitPrWorkflowQueue is null)
+        {
+            return;
+        }
+
+        var queueItem = await BuildQueueItemAsync(repository, adr, trigger, action, ct);
+        await gitPrWorkflowQueue.EnqueueAsync(queueItem, ct);
+        if (gitPrWorkflowProcessor is not null)
+        {
+            _ = await gitPrWorkflowProcessor.ProcessAndUpdateQueueAsync(queueItem.Id, ct);
+        }
+    }
+
+    private async Task<GitPrWorkflowQueueItem> BuildQueueItemAsync(
+        ManagedRepository repository,
+        Adr adr,
+        GitPrWorkflowTrigger trigger,
+        GitPrWorkflowAction action,
+        CancellationToken ct)
+    {
+        var branchName = $"proposed/adr-{adr.Number:0000}-{adr.Slug}";
+        var pullRequestUrl = default(Uri);
+        var pullRequestNumber = default(int?);
+        var commitSha = default(string);
+
+        var previousQueueItem = await gitPrWorkflowQueue!.GetLatestForAdrAsync(repository.Id, adr.Number, ct);
+        if (previousQueueItem is not null)
+        {
+            branchName = previousQueueItem.BranchName;
+            pullRequestUrl = previousQueueItem.PullRequestUrl;
+            pullRequestNumber = previousQueueItem.PullRequestNumber;
+            commitSha = previousQueueItem.CommitSha;
+        }
+
+        return new GitPrWorkflowQueueItem
+        {
+            RepositoryId = repository.Id,
+            RepositoryDisplayName = repository.DisplayName,
+            RepositoryRootPath = repository.RootPath,
+            RepositoryRemoteUrl = ResolveRepositoryRemoteUrl(repository.GitRemoteUrl),
+            RepoRelativePath = adr.RepoRelativePath,
+            AdrNumber = adr.Number,
+            AdrSlug = adr.Slug,
+            AdrTitle = adr.Title,
+            AdrStatus = adr.Status.ToString(),
+            Trigger = trigger,
+            Action = action,
+            BranchName = branchName,
+            BaseBranchName = DefaultBaseBranchName,
+            PullRequestUrl = pullRequestUrl,
+            PullRequestNumber = pullRequestNumber,
+            CommitSha = commitSha,
+            EnqueuedAtUtc = DateTime.UtcNow
+        };
+    }
+
+    private static string ResolveRepositoryRemoteUrl(string? gitRemoteUrl)
+    {
+        if (string.IsNullOrWhiteSpace(gitRemoteUrl))
+        {
+            throw new InvalidOperationException(
+                "Git remote URL is required to run Git/PR workflow automation. Configure a GitHub remote in repository settings.");
+        }
+
+        return gitRemoteUrl.Trim();
     }
 }

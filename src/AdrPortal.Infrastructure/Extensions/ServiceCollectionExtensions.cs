@@ -47,7 +47,19 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMadrParser, MadrParser>();
         services.AddSingleton<IMadrWriter, MadrWriter>();
         services.AddSingleton<IAiService, DeterministicAiService>();
+        var gitHubConfiguration = configuration.GetSection(GitHubOptions.SectionName);
+        services.Configure<GitHubOptions>(options =>
+        {
+            options.DefaultBaseBranch = gitHubConfiguration["DefaultBaseBranch"] ?? options.DefaultBaseBranch;
+            options.CommitAuthorName = gitHubConfiguration["CommitAuthorName"] ?? options.CommitAuthorName;
+            options.CommitAuthorEmail = gitHubConfiguration["CommitAuthorEmail"] ?? options.CommitAuthorEmail;
+            options.TokenUserName = gitHubConfiguration["TokenUserName"] ?? options.TokenUserName;
+        });
         services.AddSingleton<IGitPrWorkflowQueue, InMemoryGitPrWorkflowQueue>();
+        services.AddSingleton<IGitCredentialResolver, EnvironmentGitCredentialResolver>();
+        services.AddSingleton<IGitRepositoryService, LibGit2SharpRepositoryService>();
+        services.AddSingleton<IGitHubPullRequestService, OctokitGitHubPullRequestService>();
+        services.AddSingleton<IGitPrWorkflowProcessor, GitPrWorkflowProcessor>();
 
         return services;
     }
