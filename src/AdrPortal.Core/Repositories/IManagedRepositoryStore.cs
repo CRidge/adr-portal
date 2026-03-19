@@ -8,6 +8,14 @@ namespace AdrPortal.Core.Repositories;
 public interface IManagedRepositoryStore
 {
     /// <summary>
+    /// Gets a managed repository by identifier.
+    /// </summary>
+    /// <param name="repositoryId">Repository identifier to resolve.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>The managed repository when found; otherwise <see langword="null"/>.</returns>
+    Task<ManagedRepository?> GetByIdAsync(int repositoryId, CancellationToken ct);
+
+    /// <summary>
     /// Gets all managed repositories ordered for user display.
     /// </summary>
     /// <param name="ct">Cancellation token for the operation.</param>

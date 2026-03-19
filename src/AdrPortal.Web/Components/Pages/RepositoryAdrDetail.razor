@@ -1,0 +1,160 @@
+@page "/repos/{RepositoryId:int}/adr/{Number:int}"
+@inject AdrDocumentService AdrDocumentService
+@inject AdrListViewService AdrListViewService
+@inject IAdrMarkdownRenderer AdrMarkdownRenderer
+@using AdrPortal.Core.Entities
+@using AdrPortal.Web.Services
+
+<PageTitle>@GetPageTitle()</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <section class="panel adr-page">
+        <h1>ADR detail</h1>
+        <p class="repo-status repo-status--error">@loadError</p>
+        <a class="inline-link" href="@($"/repos/{RepositoryId}")">Return to ADR list</a>
+    </section>
+}
+else if (repository is null || detail is null)
+{
+    <section class="panel adr-page">
+        <h1>ADR detail</h1>
+        <p class="shell__hint">Loading ADR…</p>
+    </section>
+}
+else
+{
+    <section class="panel adr-page">
+        <header class="adr-page__header">
+            <div>
+                <p class="eyebrow">Repository ADR detail</p>
+                <h1>@repository.DisplayName</h1>
+                <p class="lead">ADR-@detail.Number.ToString("0000") from <code>@detail.RepoRelativePath</code>.</p>
+            </div>
+            <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}")">Back to list</a>
+        </header>
+    </section>
+
+    <article class="panel adr-detail">
+        <header class="adr-detail__header">
+            <div>
+                <h2>ADR-@detail.Number.ToString("0000"): @detail.Title</h2>
+                <p class="adr-detail__subtitle">@detail.Date.ToString("yyyy-MM-dd") · @detail.Slug</p>
+            </div>
+            <span class="state-badge @detail.StatusView.CssModifier">@detail.StatusView.Label</span>
+        </header>
+
+        <section class="adr-detail__meta">
+            <div class="adr-detail__meta-item">
+                <p>Status</p>
+                <strong>@detail.StatusView.Label</strong>
+            </div>
+            <div class="adr-detail__meta-item">
+                <p>Date</p>
+                <strong>@detail.Date.ToString("yyyy-MM-dd")</strong>
+            </div>
+            <div class="adr-detail__meta-item">
+                <p>Decision makers</p>
+                <strong>@FormatPeople(detail.DecisionMakers)</strong>
+            </div>
+            <div class="adr-detail__meta-item">
+                <p>Consulted</p>
+                <strong>@FormatPeople(detail.Consulted)</strong>
+            </div>
+            <div class="adr-detail__meta-item">
+                <p>Informed</p>
+                <strong>@FormatPeople(detail.Informed)</strong>
+            </div>
+            <div class="adr-detail__meta-item">
+                <p>Global template</p>
+                <strong>@GetGlobalTemplateText(detail)</strong>
+            </div>
+        </section>
+
+        @if (detail.SupersededByNumber is int supersededByNumber)
+        {
+            <p class="repo-status">
+                This ADR is superseded by ADR-@supersededByNumber.ToString("0000").
+            </p>
+        }
+
+        <section class="adr-detail__content">
+            @((MarkupString)detail.HtmlContent)
+        </section>
+    </article>
+}
+
+@code
+{
+    [Parameter]
+    public int RepositoryId { get; set; }
+
+    [Parameter]
+    public int Number { get; set; }
+
+    private ManagedRepository? repository;
+    private AdrDetailViewModel? detail;
+    private string? loadError;
+
+    /// <summary>
+    /// Loads repository and ADR detail values for the requested route.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    protected override async Task OnParametersSetAsync()
+    {
+        loadError = null;
+        repository = null;
+        detail = null;
+
+        try
+        {
+            var result = await AdrDocumentService.GetRepositoryAdrAsync(RepositoryId, Number, CancellationToken.None);
+            if (result is null)
+            {
+                loadError = $"ADR-{Number:0000} was not found for repository '{RepositoryId}'.";
+                return;
+            }
+
+            repository = result.Value.Repository;
+            detail = AdrListViewService.BuildDetail(result.Value.Adr, AdrMarkdownRenderer.Render(result.Value.Adr.RawMarkdown));
+        }
+        catch (Exception)
+        {
+            loadError = "Unable to load ADR detail. Verify repository settings and ADR markdown validity.";
+        }
+    }
+
+    /// <summary>
+    /// Formats a list of people for compact metadata display.
+    /// </summary>
+    /// <param name="values">Input values.</param>
+    /// <returns>Display text.</returns>
+    private static string FormatPeople(IReadOnlyList<string> values)
+    {
+        return values.Count is 0 ? "—" : string.Join(", ", values);
+    }
+
+    /// <summary>
+    /// Formats global template metadata text.
+    /// </summary>
+    /// <param name="viewModel">Detail view model.</param>
+    /// <returns>Display text for global template metadata.</returns>
+    private static string GetGlobalTemplateText(AdrDetailViewModel viewModel)
+    {
+        if (viewModel.GlobalId is null || viewModel.GlobalVersion is null)
+        {
+            return "Not linked";
+        }
+
+        return $"{viewModel.GlobalId} · v{viewModel.GlobalVersion}";
+    }
+
+    /// <summary>
+    /// Gets the page title for metadata.
+    /// </summary>
+    /// <returns>Page title text.</returns>
+    private string GetPageTitle()
+    {
+        return detail is null ? $"ADR-{Number:0000}" : $"ADR-{detail.Number:0000} {detail.Title}";
+    }
+}

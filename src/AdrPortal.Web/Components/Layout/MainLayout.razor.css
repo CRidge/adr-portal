@@ -52,7 +52,7 @@
     gap: 1rem;
     padding: 1.25rem;
     border-right: 1px solid var(--app-border);
-    background-color: var(--app-surface);
+    background-color: #111827;
 }
 
 .shell__nav {
@@ -66,21 +66,29 @@
     padding: 0.65rem 0.75rem;
     border-radius: 0.6rem;
     border: 1px solid transparent;
-    color: var(--app-text);
+    color: #d1d5db;
     text-decoration: none;
     transition: border-color 0.2s ease, background-color 0.2s ease;
+    font-size: 0.92rem;
+    font-weight: 500;
 }
 
 .shell__nav-link:hover {
-    border-color: var(--app-border-strong);
-    background-color: var(--app-surface-muted);
+    border-color: #334155;
+    background-color: #1f2937;
+}
+
+.shell__nav-link.active {
+    border-color: #334155;
+    background-color: #1f2937;
+    color: #ffffff;
 }
 
 .shell__hint {
     margin: 0;
     font-size: 0.9rem;
     line-height: 1.45;
-    color: var(--app-muted);
+    color: #9ca3af;
 }
 
 .shell__repositories {
@@ -91,10 +99,11 @@
 
 .shell__repositories-title {
     margin: 0;
-    font-size: 0.8rem;
+    font-size: 0.73rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--app-muted);
+    color: #9ca3af;
+    font-weight: 600;
 }
 
 .shell__repo-list {
@@ -107,22 +116,73 @@
 }
 
 .shell__repo-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
     padding: 0.65rem 0.75rem;
-    border: 1px solid var(--app-border);
-    border-radius: 0.55rem;
-    background-color: var(--app-surface-muted);
+    border: 1px solid #374151;
+    border-radius: 0.65rem;
+    background-color: #1f2937;
+    text-decoration: none;
 }
 
 .shell__repo-name {
     margin: 0;
     font-weight: 600;
-    color: var(--app-heading);
+    color: #f3f4f6;
 }
 
 .shell__repo-meta {
-    margin: 0.15rem 0 0 0;
+    margin: 0;
     font-size: 0.82rem;
-    color: var(--app-muted);
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.shell__repo-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.shell__repo-item.active {
+    border-color: #60a5fa;
+    background-color: #1e293b;
+}
+
+.shell__repo-item:hover {
+    border-color: #475569;
+}
+
+.shell__repo-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #bfdbfe;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.shell__repo-indicator::before {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background-color: #60a5fa;
+}
+
+.shell__repo-manage {
+    text-decoration: none;
+    color: #93c5fd;
+    font-size: 0.79rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 0.6rem;
+    border: 1px dashed #3b82f6;
+    background-color: #1f2937;
 }
 
 .shell__content {
@@ -164,5 +224,9 @@
     .shell__sidebar {
         border-right: 0;
         border-bottom: 1px solid var(--app-border);
+    }
+
+    .shell__repo-meta {
+        white-space: normal;
     }
 }

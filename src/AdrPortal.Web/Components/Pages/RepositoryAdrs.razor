@@ -1,0 +1,199 @@
+@page "/repos/{RepositoryId:int}"
+@inject AdrDocumentService AdrDocumentService
+@inject AdrListViewService AdrListViewService
+@using AdrPortal.Core.Entities
+@using AdrPortal.Web.Services
+
+<PageTitle>@GetPageTitle()</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <section class="panel adr-page">
+        <h1>ADR library</h1>
+        <p class="repo-status repo-status--error">@loadError</p>
+        <a class="inline-link" href="/settings/repos">Manage repositories</a>
+    </section>
+}
+else if (repository is null)
+{
+    <section class="panel adr-page">
+        <h1>ADR library</h1>
+        <p class="shell__hint">Loading repository…</p>
+    </section>
+}
+else
+{
+    <section class="panel adr-page">
+        <header class="adr-page__header">
+            <div>
+                <p class="eyebrow">Repository ADRs</p>
+                <h1>@repository.DisplayName</h1>
+                <p class="lead">Browse architectural decisions from <code>@($"/{repository.AdrFolder}")</code> with status filters and search.</p>
+            </div>
+            <a class="adr-page__settings-link" href="/settings/repos">Manage repositories</a>
+        </header>
+
+        <div class="adr-page__context">
+            <span><strong>Path:</strong> @repository.RootPath</span>
+            <span><strong>ADR folder:</strong> /@repository.AdrFolder.Replace('\\', '/')</span>
+            <span><strong>Total ADRs:</strong> @projection.AllItems.Count</span>
+        </div>
+    </section>
+
+    <section class="panel adr-panel">
+        <header class="adr-panel__header">
+            <h2>ADR Library Snapshot</h2>
+            <small>@projection.FilteredItems.Count result(s) shown</small>
+        </header>
+
+        <div class="adr-toolbar">
+            <label class="adr-toolbar__search" for="adr-search-box">Search ADRs</label>
+            <input id="adr-search-box"
+                   class="adr-toolbar__input"
+                   type="search"
+                   value="@searchTerm"
+                   @oninput="HandleSearchInput"
+                   placeholder="Search by ADR number, title, slug, or status" />
+        </div>
+
+        <div class="adr-filter-row">
+            <strong>Status filters</strong>
+            <div class="adr-filter-row__chips">
+                <button type="button"
+                        class="chip @(selectedStatus is null ? "chip--selected" : string.Empty)"
+                        @onclick="ClearStatusFilter">
+                    All <span class="chip__count">@projection.AllItems.Count</span>
+                </button>
+                @foreach (var option in projection.FilterOptions)
+                {
+                    <button type="button"
+                            class="chip @option.CssModifier @(selectedStatus == option.Status ? "chip--selected" : string.Empty)"
+                            @onclick="() => ToggleStatusFilter(option.Status)">
+                        @option.Label <span class="chip__count">@option.Count</span>
+                    </button>
+                }
+            </div>
+        </div>
+
+        @if (projection.FilteredItems.Count is 0)
+        {
+            <p class="adr-panel__empty">No ADRs match the active search and filter criteria.</p>
+        }
+        else
+        {
+            <ul class="adr-list" role="list">
+                @foreach (var item in projection.FilteredItems)
+                {
+                    <li class="adr-row">
+                        <a class="adr-row__title" href="@($"/repos/{RepositoryId}/adr/{item.Number}")">
+                            <strong>ADR-@item.Number.ToString("0000") • @item.Title</strong>
+                            <span>@item.Date.ToString("yyyy-MM-dd") · @item.Slug</span>
+                        </a>
+                        <span class="state-badge @item.StatusView.CssModifier">@item.StatusView.Label</span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code
+{
+    [Parameter]
+    public int RepositoryId { get; set; }
+
+    private ManagedRepository? repository;
+    private IReadOnlyList<Adr> repositoryAdrs = [];
+    private AdrListProjectionResult projection = new()
+    {
+        AllItems = [],
+        FilteredItems = [],
+        FilterOptions = []
+    };
+    private string? loadError;
+    private AdrStatus? selectedStatus;
+    private string searchTerm = string.Empty;
+
+    /// <summary>
+    /// Loads repository ADR data for the requested route parameter.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    protected override async Task OnParametersSetAsync()
+    {
+        loadError = null;
+        repository = null;
+        repositoryAdrs = [];
+        selectedStatus = null;
+        searchTerm = string.Empty;
+
+        try
+        {
+            var result = await AdrDocumentService.GetRepositoryWithAdrsAsync(RepositoryId, CancellationToken.None);
+            if (result is null)
+            {
+                loadError = $"Repository '{RepositoryId}' was not found.";
+                return;
+            }
+
+            repository = result.Value.Repository;
+            repositoryAdrs = result.Value.Adrs;
+            RebuildProjection();
+        }
+        catch (Exception)
+        {
+            loadError = "Unable to load ADRs for this repository. Verify repository settings and file paths.";
+        }
+    }
+
+    /// <summary>
+    /// Handles search text changes and refreshes the projected ADR list.
+    /// </summary>
+    /// <param name="eventArgs">Input event arguments.</param>
+    private void HandleSearchInput(ChangeEventArgs eventArgs)
+    {
+        var inputText = eventArgs.Value?.ToString() ?? string.Empty;
+        if (string.Equals(searchTerm, inputText, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        searchTerm = inputText;
+        RebuildProjection();
+    }
+
+    /// <summary>
+    /// Toggles the active status filter.
+    /// </summary>
+    /// <param name="status">Selected status.</param>
+    private void ToggleStatusFilter(AdrStatus status)
+    {
+        selectedStatus = selectedStatus == status ? null : status;
+        RebuildProjection();
+    }
+
+    /// <summary>
+    /// Clears the active status filter.
+    /// </summary>
+    private void ClearStatusFilter()
+    {
+        selectedStatus = null;
+        RebuildProjection();
+    }
+
+    /// <summary>
+    /// Rebuilds projected list data from ADR source values.
+    /// </summary>
+    private void RebuildProjection()
+    {
+        projection = AdrListViewService.BuildList(repositoryAdrs, searchTerm, selectedStatus);
+    }
+
+    /// <summary>
+    /// Gets the page title for metadata.
+    /// </summary>
+    /// <returns>Page title text.</returns>
+    private string GetPageTitle()
+    {
+        return repository is null ? "Repository ADRs" : $"{repository.DisplayName} ADRs";
+    }
+}
