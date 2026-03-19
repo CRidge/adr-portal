@@ -8,24 +8,24 @@ Build a locally-hosted Blazor Server web portal (.NET 10) for managing Architect
 
 ## Confirmed Decisions
 
-| Decision           | Choice                                                                              |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| Framework          | .NET 10 Blazor Web App (Interactive Server)                                         |
-| Testing            | **TUnit exclusively** — never xUnit/NUnit/MSTest                                    |
-| Package management | NuGet Central Package Management (`Directory.Packages.props`)                       |
-| ADR format         | **MADR 4.0.0**                                                                      |
-| ADR states         | proposed → accepted / rejected (→ `/docs/adr/rejected/`) / superseded / deprecated  |
-| Folder monitoring  | Configurable per-repo inbox folder; auto-import on file creation                    |
-| AI provider        | `Microsoft.Extensions.AI` abstraction; GitHub Copilot SDK as default                |
-| Git integration    | PR workflow — proposed ADRs create branch+PR; accept/reject merges/closes PR        |
-| Credentials        | Local: ambient git config; deployed: `GITHUB_TOKEN`/`GITLAB_TOKEN` env var          |
-| Multi-repo         | Workspace model — multiple repos open simultaneously                                |
-| Source→target      | AI-only relevance determination                                                     |
-| Affected ADRs      | AI analysis                                                                         |
-| Persistence        | SQLite via EF Core (file path configurable; Docker volume-mounted)                  |
-| Orchestration      | Aspire 13.1.3 for local dev                                                         |
-| Deployment         | HTTP only; no in-app auth; Docker image later                                       |
-| UI design          | No default Blazor theme; clean, minimalistic, modern; **no gradients**              |
+| Decision           | Choice                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| Framework          | .NET 10 Blazor Web App (Interactive Server)                                        |
+| Testing            | **TUnit exclusively** — never xUnit/NUnit/MSTest                                   |
+| Package management | NuGet Central Package Management (`Directory.Packages.props`)                      |
+| ADR format         | **MADR 4.0.0**                                                                     |
+| ADR states         | proposed → accepted / rejected (→ `/docs/adr/rejected/`) / superseded / deprecated |
+| Folder monitoring  | Configurable per-repo inbox folder; auto-import on file creation                   |
+| AI provider        | `Microsoft.Extensions.AI` abstraction; GitHub Copilot SDK as default               |
+| Git integration    | PR workflow — proposed ADRs create branch+PR; accept/reject merges/closes PR       |
+| Credentials        | Local: ambient git config; deployed: `GITHUB_TOKEN`/`GITLAB_TOKEN` env var         |
+| Multi-repo         | Workspace model — multiple repos open simultaneously                               |
+| Source→target      | AI-only relevance determination                                                    |
+| Affected ADRs      | AI analysis                                                                        |
+| Persistence        | SQLite via EF Core (file path configurable; Docker volume-mounted)                 |
+| Orchestration      | Aspire 13.1.3 for local dev                                                        |
+| Deployment         | HTTP only; no in-app auth; Docker image later                                      |
+| UI design          | No default Blazor theme; clean, minimalistic, modern; **no gradients**             |
 
 ---
 
@@ -305,11 +305,11 @@ SQLite file path: configurable via `ConnectionStrings:AdrPortal` in `appsettings
 
 ### ADR state actions (detail page)
 
-| Current State                      | Available Actions                                               |
-| ---------------------------------- | --------------------------------------------------------------- |
-| Proposed                           | Accept → PR merged \| Reject → PR closed + move to /rejected/   |
-| Accepted                           | Supersede (link to new ADR) \| Deprecate                        |
-| Rejected / Deprecated / Superseded | Read-only                                                       |
+| Current State                      | Available Actions                                             |
+| ---------------------------------- | ------------------------------------------------------------- |
+| Proposed                           | Accept → PR merged \| Reject → PR closed + move to /rejected/ |
+| Accepted                           | Supersede (link to new ADR) \| Deprecate                      |
+| Rejected / Deprecated / Superseded | Read-only                                                     |
 
 ---
 
@@ -489,33 +489,42 @@ Aspire provides: dashboard, OTEL traces/logs, health endpoint wiring.
 - `MadrParser` and `MadrWriter` (round-trip tests)
 - `AdrFileRepository` implementation
 - Core domain tests pass
+  
+  
 
-### Phase 3 — Repository Management UI
+### Phase 3 — Visual design
+
+- Create the general visual design of the web app
+- It should be minimalistic, stylish and user friendly!
+- Do not use gradient colors
+- Create a single-file mockup in the repo (HTML)
+
+### Phase 4 — Repository Management UI
 
 - `/settings/repos` — add/edit/remove repos
 - Repos persisted via EF Core
 - Sidebar shows repo list
 
-### Phase 4 — ADR Browse & View
+### Phase 5 — ADR Browse & View
 
 - `/repos/{id}` — ADR list with status filter + search
 - `/repos/{id}/adr/{number}` — rendered MADR detail page
 - State badge display
 
-### Phase 5 — ADR Create/Edit
+### Phase 6 — ADR Create/Edit
 
 - `/repos/{id}/adr/new` — MADR template form
 - `/repos/{id}/adr/{number}/edit`
 - File written on save
 
-### Phase 6 — State Transitions + Library Registration
+### Phase 7 — State Transitions + Library Registration
 
 - Propose → Accept / Reject (without Git initially; Git wired after)
 - Deprecate, Supersede (link to new ADR number)
 - On Accept: generate `global-id` + `global-version: 1`, write to front matter, register in library (`IGlobalAdrRegistry.RegisterAsync`)
 - On Accept of an already-linked ADR (imported from another repo): create `GlobalAdrInstance` only, preserve existing `global-id`
 
-### Phase 7 — Global ADR Library UI + Sync Workflows
+### Phase 8 — Global ADR Library UI + Sync Workflows
 
 - EF Core migrations for `GlobalAdr`, `GlobalAdrVersion`, `GlobalAdrInstance`
 - `ReconcileRepoAsync` on repo add — scan `.md` files for existing `global-id` fields
@@ -526,14 +535,14 @@ Aspire provides: dashboard, OTEL traces/logs, health endpoint wiring.
 - `DetectLocalChangesAsync` wired to FSW change events and on-save hooks
 - Dashboard badge: total count of ADRs with pending proposals or update-available instances
 
-### Phase 8 — AI Codebase Bootstrap
+### Phase 9 — AI Codebase Bootstrap
 
 - `IAiService.BootstrapAdrsFromCodebaseAsync` implementation
 - "Bootstrap ADRs with AI" button on empty-repo view
 - Card selection UI for reviewing and accepting/discarding AI-suggested drafts
 - Accepted drafts written as proposed ADRs and queued for Git/PR workflow
 
-### Phase 9 — Inbox Watcher + Drag-Drop
+### Phase 10 — Inbox Watcher + Drag-Drop
 
 - `InboxWatcherService` background service
 - Auto-import flow tested
@@ -541,28 +550,28 @@ Aspire provides: dashboard, OTEL traces/logs, health endpoint wiring.
 - Drag-drop zone on `/repos/{id}` (Blazor `InputFile` + JS interop)
 - Filename collision handling
 
-### Phase 10 — Git / PR Integration
+### Phase 11 — Git / PR Integration
 
 - LibGit2Sharp branch creation + commit
 - Octokit PR creation / merge / close
 - Credential resolution (env var → git config → error UI)
 - Wire library update "Apply" action through Git/PR workflow
 
-### Phase 11 — AI Integration (remaining features)
+### Phase 12 — AI Integration (remaining features)
 
 - `Microsoft.Extensions.AI` + Copilot SDK registration
 - Suggest Alternatives in create form
 - Evaluate & Recommend in create/edit form
 - Find Affected ADRs shown on ADR detail
 
-### Phase 12 — Source → Target Comparison
+### Phase 13 — Source → Target Comparison
 
 - `/compare` UI
 - AI relevance scoring
 - Import workflow with ID remapping
 - Preserve `global-id`/`global-version` when importing a library-linked ADR
 
-### Phase 13 — Polish & Docker
+### Phase 14 — Polish & Docker
 
 - Dark/light mode toggle
 - Docker image + compose file
