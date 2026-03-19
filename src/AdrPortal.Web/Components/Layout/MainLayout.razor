@@ -8,7 +8,7 @@
             <span class="brand__dot" aria-hidden="true"></span>
             <span class="brand__name">ADR Portal</span>
         </div>
-        <span class="shell__status">Phase 4 repository management</span>
+        <span class="shell__status">Phase 5 ADR browse and detail</span>
     </header>
 
     <div class="shell__body">
@@ -16,7 +16,7 @@
             <nav class="shell__nav" aria-label="Primary navigation">
                 <NavLink class="shell__nav-link" href="/" Match="NavLinkMatch.All">Overview</NavLink>
                 <NavLink class="shell__nav-link" href="/settings/repos">Repository settings</NavLink>
-                <a class="shell__nav-link" href="/not-found">ADR workflows (coming soon)</a>
+                <a class="shell__nav-link" href="/not-found">Workflow actions (coming soon)</a>
             </nav>
 
             <section class="shell__repositories" aria-label="Managed repositories">
@@ -32,12 +32,22 @@
                     <ul class="shell__repo-list">
                         @foreach (var repository in RepositoryCatalogState.Repositories)
                         {
-                            <li class="shell__repo-item">
-                                <p class="shell__repo-name">@repository.DisplayName</p>
-                                <p class="shell__repo-meta">@repository.AdrFolder</p>
+                            <li>
+                                <NavLink class="shell__repo-item" href="@($"/repos/{repository.Id}")">
+                                    <span class="shell__repo-item-head">
+                                        <span class="shell__repo-name">@repository.DisplayName</span>
+                                        @if (repository.IsActive)
+                                        {
+                                            <span class="shell__repo-indicator">Active</span>
+                                        }
+                                    </span>
+                                    <span class="shell__repo-meta">@repository.RootPath</span>
+                                </NavLink>
                             </li>
                         }
                     </ul>
+
+                    <a class="shell__repo-manage" href="/settings/repos">Manage repositories · /settings/repos</a>
                 }
             </section>
         </aside>

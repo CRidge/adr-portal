@@ -67,6 +67,38 @@ public class ManagedRepositoryStoreTests
     }
 
     [Test]
+    public async Task GetById_ReturnsRepositoryWhenFound()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = CreateOptions(connection);
+
+        await using var setupContext = new AdrPortalDbContext(options);
+        await setupContext.Database.EnsureCreatedAsync();
+        setupContext.ManagedRepositories.Add(
+            new ManagedRepository
+            {
+                DisplayName = "Repo Lookup",
+                RootPath = @"C:\repos\lookup",
+                AdrFolder = "docs/adr",
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow.AddMinutes(-1),
+                UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-1)
+            });
+        _ = await setupContext.SaveChangesAsync();
+        var id = await setupContext.ManagedRepositories.Select(repository => repository.Id).SingleAsync();
+
+        await using var context = new AdrPortalDbContext(options);
+        var store = new ManagedRepositoryStore(context);
+
+        var loaded = await store.GetByIdAsync(id, CancellationToken.None);
+
+        await Assert.That(loaded).IsNotNull();
+        await Assert.That(loaded!.DisplayName).IsEqualTo("Repo Lookup");
+        await Assert.That(loaded.RootPath).IsEqualTo(@"C:\repos\lookup");
+    }
+
+    [Test]
     public async Task Update_ChangesStoredValues()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");

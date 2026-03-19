@@ -11,6 +11,21 @@ namespace AdrPortal.Infrastructure.Repositories;
 public sealed class ManagedRepositoryStore(AdrPortalDbContext dbContext) : IManagedRepositoryStore
 {
     /// <summary>
+    /// Gets a managed repository by identifier.
+    /// </summary>
+    /// <param name="repositoryId">Repository identifier.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>The managed repository when found; otherwise <see langword="null"/>.</returns>
+    public async Task<ManagedRepository?> GetByIdAsync(int repositoryId, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        return await dbContext.ManagedRepositories
+            .AsNoTracking()
+            .SingleOrDefaultAsync(repository => repository.Id == repositoryId, ct);
+    }
+
+    /// <summary>
     /// Gets all managed repositories ordered by display name and identifier.
     /// </summary>
     /// <param name="ct">Cancellation token for the operation.</param>
