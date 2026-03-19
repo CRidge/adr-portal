@@ -17,7 +17,7 @@ Build a locally-hosted Blazor Server web portal (.NET 10) for managing Architect
 | ADR states         | proposed → accepted / rejected (→ `/docs/adr/rejected/`) / superseded / deprecated |
 | Folder monitoring  | Configurable per-repo inbox folder; auto-import on file creation                   |
 | AI provider        | `Microsoft.Extensions.AI` abstraction; GitHub Copilot SDK as default               |
-| Git integration    | PR workflow — proposed ADRs create branch+PR; accept/reject are merged PR outcomes  |
+| Git integration    | PR workflow — proposed ADRs create branch+PR; accept/reject merges/closes PR       |
 | Credentials        | `GITHUB_TOKEN` first, then ambient git config (local fallback); error if unavailable |
 | Multi-repo         | Workspace model — multiple repos open simultaneously                               |
 | Source→target      | AI-only relevance determination                                                    |
@@ -375,7 +375,7 @@ When a repo is added with no existing ADRs, a **"Bootstrap ADRs with AI"** butto
   - Deployed: `GITHUB_TOKEN` env var (required, explicit error if missing)
 - Branch naming: `proposed/adr-{NNNN}-{slug}`
 - On Accept: `IGitService.MergePullRequestAsync` (PR contains `status: accepted` and metadata updates)
-- On Reject: merge a rejection PR that sets `status: rejected` and moves the ADR to `/docs/adr/rejected/`
+- On Reject: `IGitService.ClosePullRequestAsync` → `IAdrFileRepository.MoveToRejectedAsync`
 - Optional: `IGitService.ClosePullRequestAsync` for withdrawn proposals before a decision
 - Note: GitLab support via `IGitService` second implementation (out of scope for v1; flag in ADR)
 
@@ -597,5 +597,5 @@ Aspire provides: dashboard, OTEL traces/logs, health endpoint wiring.
 
 1. **GitLab support**: `IGitService` abstraction supports it; `GitHubGitService` is GitHub-only for v1. Document in ADR.
 2. **Inbox path**: no default convention — must be explicitly configured per repo.
-3. **AI token**: `GITHUB_TOKEN` env var also used for Copilot SDK authentication; may conflict with git PAT on deployed environments. Document configuration in README.
+3. **Token separation**: use `GITHUB_TOKEN` for git operations and `COPILOT_TOKEN` for AI provider access; document fallback and error behavior in README.
 4. **Cross-repo ID conflict**: surfaced as blocking UI dialog before import — user must confirm.
