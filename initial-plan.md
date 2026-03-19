@@ -32,7 +32,7 @@ Build a locally-hosted Blazor Server web portal (.NET 10) for managing Architect
 ## Solution Structure
 
 ```
-AdrPortal.sln
+AdrPortal.slnx
 ├── src/
 │   ├── AdrPortal.AppHost/               # Aspire AppHost (Aspire 13.1.3)
 │   ├── AdrPortal.ServiceDefaults/       # Aspire service defaults (OTEL, health checks)
@@ -475,22 +475,11 @@ Aspire provides: dashboard, OTEL traces/logs, health endpoint wiring.
 
 ---
 
-## Pre-existing ADRs to Rewrite
-
-The five existing ADRs (`adr-0001` through `adr-0005`) were written in a custom format and must be rewritten to MADR 4.0.0 as a prerequisite before implementation begins. A new `adr-0006` documents the MADR format choice itself.
-
----
-
 ## Implementation Phases
-
-### Phase 0 — Prerequisites
-
-- Rewrite `docs/adr/adr-0001` through `adr-0005` to MADR 4.0.0 format
-- Create `adr-0006-madr-format.md`
 
 ### Phase 1 — Solution Scaffold
 
-- Create `.sln`, all projects, `Directory.Packages.props`, `Directory.Build.props`, `global.json`
+- Create `.slnx`, all projects, `Directory.Packages.props`, `Directory.Build.props`, `global.json`
 - Aspire AppHost + ServiceDefaults wired up
 - EF Core migrations for `ManagedRepository`
 - Minimal Blazor app with layout + custom CSS shell (no content yet)

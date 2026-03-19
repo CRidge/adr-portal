@@ -1,35 +1,46 @@
 ---
-title: "ADR-0005: File-Based ADR Storage with Standard Folder Structure"
-status: "Accepted"
-date: "2026-03-19"
-authors: "ADR Portal Project Team"
-tags: ["architecture", "decision", "storage", "file-system", "adr-format"]
-supersedes: ""
-superseded_by: ""
+status: "accepted"
+date: 2026-03-19
+decision-makers: [ADR Portal Project Team]
+consulted: []
+informed: []
 ---
+# File-Based ADR Storage with Standard Folder Structure
 
-# ADR-0005: File-Based ADR Storage with Standard Folder Structure
+## Context and Problem Statement
 
-## Status
+The ADR Portal manages ADRs for software repositories. A core design choice is where ADR content is persisted. The portal must operate against repositories on disk, support folder monitoring for inbox files, enable cross-repo portability of ADR files, and keep ADRs version-controlled alongside the code they govern.
 
-**Accepted**
+Note: this decision covers ADR *content* storage only. Portal configuration and the global ADR library are stored separately in SQLite — see ADR-0007.
 
-## Context
+## Decision Drivers
 
-The ADR Portal manages ADRs for software repositories. A fundamental design choice is where and how ADR data is persisted. The options range from a dedicated database to keeping ADRs as plain markdown files co-located within the repositories they document.
+* ADRs must be version-controlled alongside the code they describe
+* Folder-monitoring requirement demands files that can be dropped into a directory
+* Cross-repo portability: ADRs must be copyable between repositories
+* Consistency with established ADR tooling conventions (adr-tools, MADR, Log4brains)
+* No external infrastructure dependency for ADR content
 
-The project requirements are explicit:
+## Considered Options
 
-- The portal operates against **a given repo on disk** and reads/writes ADRs from that repository.
-- ADRs in all lifecycle states (proposed, accepted, superseded, retired, rejected) must be discoverable via a **predictable, standard folder structure**.
-- The system must be able to **monitor a folder** and treat newly added `.md` files as proposed ADRs.
-- A **source-to-target repo evaluation** workflow must be supported, implying ADRs are portable artifacts that live within repos.
+* Markdown files in `docs/adr/` within each repository
+* SQLite database file per repository
+* Central relational database (PostgreSQL / SQL Server)
+* GitHub Issues as ADR storage
 
-These requirements strongly favour file-system-based storage over a separate database, keeping ADRs as version-controlled markdown files inside repositories — consistent with established ADR tooling (adr-tools, Log4brains, etc.).
+## Decision Outcome
 
-## Decision
+Chosen option: "Markdown files in `docs/adr/`", because it satisfies all requirements: ADRs are version-controlled, diffable in PRs, editable outside the portal, portable between repos, and directly compatible with `FileSystemWatcher` for inbox monitoring.
 
-ADRs will be stored as **markdown files** within the repository they document, under a standard folder structure rooted at `docs/adr/`. The portal reads from and writes to this folder on disk. No separate database is used for ADR content. Metadata required for portal operation (e.g., watch state, cross-repo mappings) may be stored in a lightweight sidecar file (`.adr-portal.json`) at the repo root.
+### Consequences
+
+* Good, because ADRs are version-controlled alongside the code they govern — history is visible in `git log` and changes are reviewable in PRs.
+* Good, because no external database dependency for ADR content.
+* Good, because ADRs are human-readable and editable with any text editor or the GitHub web UI.
+* Good, because cross-repo portability is trivial — ADRs are files that can be copied and ID-remapped.
+* Bad, because querying large corpora (e.g., finding all ADRs with a given tag) requires scanning all files; acceptable for typical corpus sizes (<500 ADRs).
+* Bad, because concurrent writes from multiple portal users to the same directory require conflict detection.
+* Bad, because YAML front matter parsing introduces a dependency on a parser; malformed files can cause errors.
 
 ### Standard Folder Structure
 
@@ -37,61 +48,44 @@ ADRs will be stored as **markdown files** within the repository they document, u
 {repo-root}/
 └── docs/
     └── adr/
-        ├── adr-0001-<title-slug>.md     # Accepted
-        ├── adr-0002-<title-slug>.md     # Superseded
-        ├── adr-0003-<title-slug>.md     # Proposed
-        └── ...
+        ├── adr-0001-<slug>.md       # accepted / proposed / deprecated / superseded
+        ├── adr-0002-<slug>.md
+        └── rejected/
+            └── adr-0003-<slug>.md   # rejected ADRs moved here
 ```
 
-ADR state (proposed, accepted, rejected, superseded, retired) is stored in the **YAML front matter** of each markdown file (`status` field), not in the folder hierarchy. This keeps all ADRs in a single scannable directory while still allowing filtering by status.
+ADR state is stored in the YAML front matter `status` field. Rejected ADRs are moved to a `rejected/` subfolder to keep the main directory clean while preserving history.
 
-## Consequences
+## Pros and Cons of the Options
 
-### Positive
+### Markdown files in `docs/adr/`
 
-- **POS-001**: ADRs are version-controlled alongside the code they govern — developers can see ADR history in `git log`, review ADR changes in pull requests, and trace decisions to commits.
-- **POS-002**: No external database dependency; the portal has zero persistence infrastructure requirements beyond a file system.
-- **POS-003**: ADRs are human-readable and editable outside the portal — any text editor or GitHub web UI can view and propose changes.
-- **POS-004**: Portability between repositories is trivial — ADRs are just files that can be copied and ID-remapped.
-- **POS-005**: `FileSystemWatcher` integration is straightforward for the folder-monitoring use case.
-- **POS-006**: Consistent with established ADR community conventions (adr-tools, MADR, Log4brains all use this pattern).
+* Good, because git-native — history, blame, and PR review all work out of the box.
+* Good, because zero infrastructure dependency.
+* Good, because compatible with `FileSystemWatcher` for inbox monitoring.
+* Bad, because no referential integrity — cross-ADR links can become stale.
 
-### Negative
+### SQLite database file per repository
 
-- **NEG-001**: Querying across large ADR corpora (e.g., finding all ADRs with a given tag) requires scanning all files, which is slower than a database query. Acceptable for typical ADR corpus sizes (<500 ADRs).
-- **NEG-002**: Concurrent writes from multiple portal users to the same repo directory require a locking or conflict-detection strategy.
-- **NEG-003**: Front matter parsing introduces a dependency on a YAML parser and contract with the markdown schema; malformed files can cause parse errors.
-- **NEG-004**: No referential integrity — an ADR can reference a superseded-by ADR that doesn't exist. The portal must implement its own consistency validation.
+* Good, because efficient querying and referential integrity.
+* Bad, because binary file — ADRs lose git history granularity and are not reviewable in PRs.
+* Bad, because ADRs cannot be edited outside the portal.
 
-## Alternatives Considered
+### Central relational database
 
-### SQLite database per repository
+* Good, because powerful querying across all repos simultaneously.
+* Bad, because introduces infrastructure dependency (database server).
+* Bad, because ADRs are no longer co-located with the code they document.
 
-- **ALT-001**: **Description**: Store ADR content and metadata in a SQLite database file (`.adr-portal.db`) at the repo root.
-- **ALT-002**: **Rejection Reason**: ADRs become binary/opaque to git — they lose version history granularity, are not reviewable in PRs, and cannot be edited outside the portal. Breaks the core principle that ADRs are first-class repository documents.
+### GitHub Issues as ADR storage
 
-### Central PostgreSQL / SQL Server database
+* Good, because built-in commenting and review workflows.
+* Bad, because requires GitHub API access; inbox monitoring via file drop is not possible.
+* Bad, because ADRs are not co-located with the codebase.
 
-- **ALT-003**: **Description**: A shared relational database storing ADRs for all managed repositories.
-- **ALT-004**: **Rejection Reason**: Introduces infrastructure dependency (database server), connection management, and data synchronisation concerns. ADRs for a given repo would no longer live in that repo. Contradicts the requirement to "work on a given repo on disk".
+## More Information
 
-### GitHub Issues / GitHub Discussions as ADR storage
-
-- **ALT-005**: **Description**: Store proposed and accepted ADRs as GitHub Issues with structured templates.
-- **ALT-006**: **Rejection Reason**: Creates a dependency on GitHub API availability, authentication, and rate limits. Folder-monitoring requirement cannot be met. ADRs are not co-located with the codebase in a portable way.
-
-## Implementation Notes
-
-- **IMP-001**: Implement an `IAdrRepository` interface in `ADRPortal.Core` with methods for `GetAll`, `GetByStatus`, `GetById`, `Save`, and `Delete`. Bind to a `FileSystemAdrRepository` in `ADRPortal.Infrastructure` that reads/writes the `docs/adr/` directory.
-- **IMP-002**: Use [YamlDotNet](https://github.com/aaubry/YamlDotNet) or [Markdig](https://github.com/xoofx/markdig) with a YAML front matter extension to parse ADR markdown files. Define a canonical `AdrFrontMatter` model with required fields: `title`, `status`, `date`, `authors`, `tags`, `supersedes`, `superseded_by`.
-- **IMP-003**: Register a `FileSystemWatcher` service that monitors the configured `docs/adr/` path. On `.md` file creation, parse the file and surface it as a proposed ADR if no `status` front matter is present, defaulting status to `Proposed`.
-- **IMP-004**: When assigning ADR IDs in a target repository during cross-repo import, scan the existing `docs/adr/` directory for the highest numeric ID and assign the next sequential value, preserving the original ID in a `source_id` front matter field.
-- **IMP-005**: Implement an `AdrConsistencyValidator` that checks: referenced `supersedes`/`superseded_by` IDs exist, linked ADRs have consistent mutual references, and no two ADRs share the same ID.
-
-## References
-
-- **REF-001**: [ADR-0004: Copilot SDK for AI-Assisted ADR Evaluation](./adr-0004-copilot-sdk-ai-integration.md)
-- **REF-002**: [adr.github.io — ADR tooling and formats](https://adr.github.io/)
-- **REF-003**: [MADR — Markdown Architectural Decision Records](https://adr.github.io/madr/)
-- **REF-004**: [Maintain an ADR — Microsoft Azure Well-Architected Framework](https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record)
-- **REF-005**: [concept.md — Use cases section](../../concept.md)
+* [ADR-0006: MADR 4.0.0 as ADR Format](adr-0006-madr-format.md)
+* [ADR-0007: SQLite for Portal Configuration and Global Library](adr-0007-sqlite-ef-core-persistence.md)
+* [MADR — Markdown Architectural Decision Records](https://adr.github.io/madr/)
+* [adr.github.io — ADR tooling and formats](https://adr.github.io/)

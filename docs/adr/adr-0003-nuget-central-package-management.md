@@ -1,90 +1,68 @@
 ---
-title: "ADR-0003: NuGet Central Package Management"
-status: "Accepted"
-date: "2026-03-19"
-authors: "ADR Portal Project Team"
-tags: ["architecture", "decision", "nuget", "package-management"]
-supersedes: ""
-superseded_by: ""
+status: "accepted"
+date: 2026-03-19
+decision-makers: [ADR Portal Project Team]
+consulted: []
+informed: []
 ---
+# NuGet Central Package Management
 
-# ADR-0003: NuGet Central Package Management
+## Context and Problem Statement
 
-## Status
+The ADR Portal solution contains multiple projects (web host, core domain, infrastructure, test projects). Without centralised version management, each project independently declares NuGet versions in its `.csproj`, leading to version drift, tedious multi-file upgrade PRs, and inconsistent transitive dependency resolution. The project specification explicitly references Central Package Management (CPM) as the required approach.
 
-**Accepted**
+## Decision Drivers
 
-## Context
+* Multi-project solution requiring consistent package versions across all projects
+* Simplifying security patch rollout (one file to update)
+* Project specification explicitly requires CPM
+* Compatibility with Dependabot for automated dependency updates
 
-The ADR Portal solution will consist of multiple projects (web host, core domain, infrastructure, test projects). Without a centralized approach to NuGet package versioning, each project independently declares package versions in its `.csproj` file. This leads to:
+## Considered Options
 
-- Version drift between projects (e.g., `Microsoft.Extensions.Logging` at 9.x in one project, 10.x in another)
-- Tedious multi-file updates when upgrading shared dependencies
-- Inconsistent transitive dependency resolution
-- Increased security risk when patches are not uniformly applied
+* NuGet Central Package Management (`Directory.Packages.props`)
+* Per-project version declarations (no CPM)
+* Paket
+* MSBuild property variables in `Directory.Build.props`
 
-The project specification explicitly references [Central Package Management (CPM)](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) as the required package management approach.
+## Decision Outcome
 
-## Decision
+Chosen option: "NuGet Central Package Management (`Directory.Packages.props`)", because it is the officially supported mechanism, is mandated by the project specification, and provides a single source of truth for all package versions with full IDE and tooling support.
 
-All NuGet package **versions** will be declared exclusively in a root-level `Directory.Packages.props` file using Central Package Management. Individual project files (`.csproj`) reference packages by name only, without a version attribute. The `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` MSBuild property will be set in `Directory.Build.props`.
+### Consequences
 
-## Consequences
+* Good, because a single file controls all package versions — upgrades require editing exactly one place.
+* Good, because version conflicts between projects in the same solution are eliminated.
+* Good, because Dependabot raises a single PR per package update rather than one per project.
+* Bad, because projects cannot independently use different package versions without an explicit `VersionOverride`, which must be used sparingly.
+* Bad, because developers unfamiliar with CPM may be confused when `.csproj` references have no `Version` attribute.
 
-### Positive
+## Pros and Cons of the Options
 
-- **POS-001**: Single source of truth for all package versions — upgrading a package requires editing exactly one file.
-- **POS-002**: Eliminates version conflicts between projects in the same solution; all projects consume the same version of shared packages.
-- **POS-003**: Simplifies security audits — `dotnet list package --vulnerable` reports against a unified version set.
-- **POS-004**: Consistent with Microsoft's recommended practices for multi-project .NET solutions as of .NET 7+.
-- **POS-005**: Compatible with Dependabot, which can raise a single PR to update a package version in `Directory.Packages.props` rather than multiple per-project PRs.
+### NuGet Central Package Management
 
-### Negative
+* Good, because official NuGet/MSBuild mechanism with full IDE support.
+* Good, because single source of truth for all versions.
+* Good, because compatible with Dependabot and `dotnet list package --vulnerable`.
+* Bad, because requires all projects to align on a single version per package.
 
-- **NEG-001**: Projects cannot independently use different versions of the same package without an explicit `VersionOverride` attribute, which should be used sparingly and documented.
-- **NEG-002**: Developers unfamiliar with CPM may be confused when adding a package reference without a version and seeing it resolved from the central props file.
-- **NEG-003**: IDE tooling (e.g., Visual Studio NuGet Package Manager GUI) may display version information in a less intuitive way for CPM-managed solutions.
+### Per-project version declarations
 
-## Alternatives Considered
-
-### Per-project version declarations (no CPM)
-
-- **ALT-001**: **Description**: Each `.csproj` declares `<PackageReference Include="X" Version="Y" />` independently — the traditional approach.
-- **ALT-002**: **Rejection Reason**: Does not scale to multi-project solutions. Version drift and inconsistency are inevitable. Explicitly rejected by the project specification.
+* Good, because each project can independently choose its version.
+* Bad, because version drift across projects is inevitable and introduces transitive conflicts.
+* Bad, because security patches require updating multiple `.csproj` files.
 
 ### Paket
 
-- **ALT-003**: **Description**: Alternative .NET package manager with its own lock file and dependency resolution model.
-- **ALT-004**: **Rejection Reason**: Introduces a non-standard toolchain. CPM achieves the same goals within the official NuGet/MSBuild ecosystem, requiring no additional tooling.
+* Good, because strict dependency locking and reproducible resolution.
+* Bad, because introduces a non-standard toolchain not part of the official NuGet/MSBuild ecosystem.
 
-### Directory.Build.props version variables
+### MSBuild property variables
 
-- **ALT-005**: **Description**: Define version strings as MSBuild properties in `Directory.Build.props` and reference them via `$(MyPackageVersion)` in project files.
-- **ALT-006**: **Rejection Reason**: A manual workaround that predates CPM. CPM is the officially supported mechanism and provides better IDE and tooling integration.
+* Good, because works with any MSBuild version without requiring CPM support.
+* Bad, because a manual workaround that predates CPM; no IDE auto-complete or tooling support.
 
-## Implementation Notes
+## More Information
 
-- **IMP-001**: Create `Directory.Packages.props` at the repository root with all `<PackageVersion>` entries. Example:
-  ```xml
-  <Project>
-    <PropertyGroup>
-      <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    </PropertyGroup>
-    <ItemGroup>
-      <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0" />
-      <PackageVersion Include="TUnit" Version="x.y.z" />
-    </ItemGroup>
-  </Project>
-  ```
-- **IMP-002**: In `.csproj` files, reference packages without a `Version` attribute:
-  ```xml
-  <PackageReference Include="TUnit" />
-  ```
-- **IMP-003**: Use `VersionOverride` only when a specific project genuinely requires a different version, and document the reason in a comment within `Directory.Packages.props`.
-- **IMP-004**: Configure Dependabot to target `Directory.Packages.props` for automated dependency updates.
-
-## References
-
-- **REF-001**: [ADR-0001: Blazor on .NET 10 as Web Application Framework](./adr-0001-blazor-dotnet10-framework.md)
-- **REF-002**: [Central Package Management — Microsoft Learn](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management)
-- **REF-003**: [concept.md — Tech choices section](../../concept.md)
+* [Central Package Management — Microsoft Learn](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management)
+* [ADR-0001: Blazor on .NET 10](adr-0001-blazor-dotnet10-framework.md)
