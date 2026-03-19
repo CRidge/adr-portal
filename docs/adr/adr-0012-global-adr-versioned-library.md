@@ -41,14 +41,15 @@ Chosen option: "Versioned library in SQLite with `global-id` / `global-version` 
 ### Data model summary
 
 ```
-GlobalAdr           — one entry per unique ADR topic
-  └─ GlobalAdrVersion  — immutable snapshot per accepted version (v1, v2, ...)
-  └─ GlobalAdrInstance — one per repo holding this ADR; tracks BaseTemplateVersion, HasLocalChanges, UpdateAvailable
+GlobalAdr                 — one entry per unique ADR topic
+  └─ GlobalAdrVersion        — immutable snapshot per accepted version (v1, v2, ...)
+  └─ GlobalAdrUpdateProposal — pending repo→library update awaiting accept/discard
+  └─ GlobalAdrInstance       — one per repo holding this ADR; tracks BaseTemplateVersion, HasLocalChanges, UpdateAvailable
 ```
 
 ### Two-direction workflow
 
-**Repo → Library**: When a repo ADR diverges from its base template version, a "Propose library update" action creates a pending `GlobalAdrVersion`. Any user can accept or discard the proposal. On accept, all other instances are flagged `UpdateAvailable = true`.
+**Repo → Library**: When a repo ADR diverges from its base template version, a "Propose library update" action creates a pending `GlobalAdrUpdateProposal`. Any user can accept or discard the proposal. On accept, the proposal is materialized as a new `GlobalAdrVersion` and all other instances are flagged `UpdateAvailable = true`.
 
 **Library → Repo**: When a new library version exists, each repo instance can Review (diff view), then Apply (Git/PR workflow), Customise (edit before committing), or Dismiss (keep repo ADR as-is).
 

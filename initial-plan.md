@@ -17,8 +17,8 @@ Build a locally-hosted Blazor Server web portal (.NET 10) for managing Architect
 | ADR states         | proposed → accepted / rejected (→ `/docs/adr/rejected/`) / superseded / deprecated |
 | Folder monitoring  | Configurable per-repo inbox folder; auto-import on file creation                   |
 | AI provider        | `Microsoft.Extensions.AI` abstraction; GitHub Copilot SDK as default               |
-| Git integration    | PR workflow — proposed ADRs create branch+PR; accept/reject merges/closes PR       |
-| Credentials        | Local: ambient git config; deployed: `GITHUB_TOKEN`/`GITLAB_TOKEN` env var         |
+| Git integration    | PR workflow — proposed ADRs create branch+PR; accept/reject are merged PR outcomes  |
+| Credentials        | `GITHUB_TOKEN` first, then ambient git config (local fallback); error if unavailable |
 | Multi-repo         | Workspace model — multiple repos open simultaneously                               |
 | Source→target      | AI-only relevance determination                                                    |
 | Affected ADRs      | AI analysis                                                                        |
@@ -108,15 +108,15 @@ public interface IGlobalAdrRegistry
     // Repo ADR was edited — detect divergence from base template version; set HasLocalChanges
     Task DetectLocalChangesAsync(Guid globalId, int repositoryId, string currentMarkdown, CancellationToken ct);
 
-    // User proposes a new library version from a changed repo ADR (creates pending version)
-    Task<GlobalAdrVersion> ProposeTemplateUpdateAsync(
+    // User proposes a library update from a changed repo ADR (creates pending proposal)
+    Task<GlobalAdrUpdateProposal> ProposeTemplateUpdateAsync(
         Guid globalId, string newMarkdown, string changeNotes, int fromRepositoryId, CancellationToken ct);
 
-    // Accept the pending proposal — bumps CurrentVersion, sets UpdateAvailable on all other instances
-    Task<GlobalAdrVersion> AcceptTemplateUpdateAsync(Guid globalId, int versionId, CancellationToken ct);
+    // Accept pending proposal — creates a new GlobalAdrVersion and bumps CurrentVersion
+    Task<GlobalAdrVersion> AcceptTemplateUpdateAsync(Guid globalId, int proposalId, CancellationToken ct);
 
-    // Discard the pending proposal
-    Task DiscardTemplateUpdateAsync(Guid globalId, int versionId, CancellationToken ct);
+    // Discard pending proposal with no new version created
+    Task DiscardTemplateUpdateAsync(Guid globalId, int proposalId, CancellationToken ct);
 
     // User reviewed the template update for their repo and chose to apply it (triggers Git/PR workflow)
     Task ApplyUpdateToRepoAsync(Guid globalId, int repositoryId, string resolvedMarkdown, CancellationToken ct);
@@ -189,6 +189,7 @@ public class GlobalAdr          // one entry per unique ADR topic in the library
     public DateTime RegisteredAt { get; set; }
     public DateTime LastUpdatedAt { get; set; }
     public ICollection<GlobalAdrVersion> Versions { get; set; }
+    public ICollection<GlobalAdrUpdateProposal> PendingProposals { get; set; }
     public ICollection<GlobalAdrInstance> Instances { get; set; }
 }
 
@@ -201,6 +202,17 @@ public class GlobalAdrVersion   // immutable snapshot — one row per accepted l
     public string? ChangeNotes { get; set; }        // what changed vs previous version
     public DateTime CreatedAt { get; set; }
     public int? SourceRepositoryId { get; set; }    // which repo ADR triggered this version (nullable)
+}
+
+public class GlobalAdrUpdateProposal  // pending repo→library update awaiting accept/discard
+{
+    public int Id { get; set; }
+    public Guid GlobalId { get; set; }              // FK → GlobalAdr
+    public int ProposedFromVersion { get; set; }    // base version proposal was created from
+    public string Markdown { get; set; }            // proposed next template markdown
+    public string ChangeNotes { get; set; }         // rationale for proposed update
+    public int FromRepositoryId { get; set; }       // origin repository
+    public DateTime ProposedAt { get; set; }
 }
 
 public class GlobalAdrInstance  // one row per repo that holds an ADR linked to this template
@@ -225,7 +237,8 @@ Library (SQLite)                       Repos (disk .md files)
 ─────────────────────                  ──────────────────────
 GlobalAdr (topic)                      Repo A: adr-0007  ──┐
   └─ Version 1  ◄── base template ────────── global-id: X  │
-  └─ Version 2  ◄── proposed from Repo A ─── (after update review)
+  └─ Proposal #17 ◄── submitted from Repo A (pending review)
+  └─ Version 2  ◄── accepted from Proposal #17
   └─ Version 3                         Repo B: adr-0003  ──┘
                                             global-id: X
 ```
@@ -256,9 +269,9 @@ Proposed ADRs do **not** have a `global-id` yet — it is assigned at the moment
 1. An accepted ADR in a repo is edited and saved
 2. Portal detects content diverges from the library template version it was based on
 3. Badge shown on ADR detail: *"This ADR has local changes vs library template v{N}"*
-4. Action: **"Propose library update"** → user writes change notes → creates a pending `GlobalAdrVersion` proposal
+4. Action: **"Propose library update"** → user writes change notes → creates a pending `GlobalAdrUpdateProposal`
 5. Any user can **accept** or **discard** the proposal on `/global/{globalId}`
-6. On accept: new `GlobalAdrVersion` row created; all other instances get `UpdateAvailable = true`
+6. On accept: a new `GlobalAdrVersion` row is created from the proposal; all other instances get `UpdateAvailable = true`
 
 **Direction 2 — Library → Repos** (template updated, repos may need reviewing)
 
@@ -361,8 +374,9 @@ When a repo is added with no existing ADRs, a **"Bootstrap ADRs with AI"** butto
   - Local: `GITHUB_TOKEN` env var → ambient git config credential helper → error
   - Deployed: `GITHUB_TOKEN` env var (required, explicit error if missing)
 - Branch naming: `proposed/adr-{NNNN}-{slug}`
-- On Accept: `IGitService.MergePullRequestAsync` → update file status on disk → commit to main
-- On Reject: `IGitService.ClosePullRequestAsync` → `IAdrFileRepository.MoveToRejectedAsync`
+- On Accept: `IGitService.MergePullRequestAsync` (PR contains `status: accepted` and metadata updates)
+- On Reject: merge a rejection PR that sets `status: rejected` and moves the ADR to `/docs/adr/rejected/`
+- Optional: `IGitService.ClosePullRequestAsync` for withdrawn proposals before a decision
 - Note: GitLab support via `IGitService` second implementation (out of scope for v1; flag in ADR)
 
 ---
@@ -370,7 +384,7 @@ When a repo is added with no existing ADRs, a **"Bootstrap ADRs with AI"** butto
 ## AI Service (AdrPortal.Infrastructure)
 
 - Configure `IChatClient` from `Microsoft.Extensions.AI`
-- Default: GitHub Copilot SDK (`IChatClient` registered via `AddGitHubCopilot`)
+- Default: GitHub Copilot provider via configured `Microsoft.Extensions.AI` adapter registration
 - All AI calls are grounded: inject relevant existing ADRs as context in the system prompt
 - Features:
   - **Suggest Alternatives**: given problem statement → list of alternative approaches
@@ -433,7 +447,7 @@ LibGit2Sharp
 Octokit
 <!-- AI -->
 Microsoft.Extensions.AI
-Microsoft.Extensions.AI.OpenAI   (Copilot SDK compatibility shim)
+Provider-specific Microsoft.Extensions.AI package (selected during integration)
 <!-- Aspire -->
 Aspire.Hosting (AppHost)
 Microsoft.Extensions.ServiceDiscovery
@@ -581,7 +595,7 @@ Aspire provides: dashboard, OTEL traces/logs, health endpoint wiring.
 
 ## Open Technical Notes
 
-1. **GitLab support**: `IGitService` abstraction supports it; `OctokitGitService` is GitHub-only for v1. Document in ADR.
+1. **GitLab support**: `IGitService` abstraction supports it; `GitHubGitService` is GitHub-only for v1. Document in ADR.
 2. **Inbox path**: no default convention — must be explicitly configured per repo.
 3. **AI token**: `GITHUB_TOKEN` env var also used for Copilot SDK authentication; may conflict with git PAT on deployed environments. Document configuration in README.
 4. **Cross-repo ID conflict**: surfaced as blocking UI dialog before import — user must confirm.

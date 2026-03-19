@@ -41,13 +41,13 @@ Chosen option: "`Microsoft.Extensions.AI` (`IChatClient`)", because it is a Micr
 ### DI registration pattern
 
 ```csharp
-// Default: GitHub Copilot SDK
-builder.Services.AddChatClient(builder =>
-    builder.UseGitHubCopilot(token: config["CopilotToken"]));
+// Default provider registration (GitHub Copilot)
+builder.Services.AddChatClient(
+    _ => /* provider-specific Copilot adapter registration */);
 
-// Alternative: Azure OpenAI (swap without code changes)
-builder.Services.AddChatClient(builder =>
-    builder.UseAzureOpenAI(endpoint, credential));
+// Alternative provider registration (Azure OpenAI)
+builder.Services.AddChatClient(
+    _ => /* provider-specific Azure OpenAI adapter registration */);
 ```
 
 ## Pros and Cons of the Options

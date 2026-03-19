@@ -20,7 +20,7 @@ When an ADR moves from `proposed` to `accepted` or `rejected`, the change must b
 
 ## Considered Options
 
-* PR-based workflow — proposed ADRs create a branch+PR; accept/reject merges/closes the PR
+* PR-based workflow — proposed ADRs create a branch+PR; accept/reject are finalized through reviewed PR outcomes
 * Direct commit to default branch on state transition
 * Tag-based workflow — state stored in git tags, no branch required
 
@@ -32,7 +32,7 @@ Chosen option: "PR-based workflow", because it enables peer review of architectu
 
 * Good, because each proposed ADR gets a dedicated branch (`proposed/adr-{NNNN}-{slug}`) and PR, enabling review comments and approval workflows.
 * Good, because accepting an ADR merges the PR — the merge commit records the reviewer, not just the author.
-* Good, because rejecting an ADR closes the PR and moves the file to `docs/adr/rejected/` without polluting `main`.
+* Good, because rejecting an ADR is represented as an explicit reviewed PR outcome, preserving an auditable history of the rejection decision.
 * Good, because compatible with repository branch protection rules that require PR reviews before merging.
 * Bad, because requires the portal to have write access to the repository and PR creation permissions via a token.
 * Bad, because adds latency to the accept/reject flow compared to a direct commit.
@@ -42,7 +42,7 @@ Chosen option: "PR-based workflow", because it enables peer review of architectu
 * Branch: `proposed/adr-{NNNN}-{slug}`
 * PR title: `ADR-{NNNN}: {title}`
 * On accept: PR is merged; ADR file updated with `status: accepted` and `global-id` assigned
-* On reject: PR is closed; ADR file moved to `docs/adr/rejected/`
+* On reject: rejection changes are merged via PR (`status: rejected` + move to `docs/adr/rejected/`); any superseded proposal PR is then closed
 
 ### Credential resolution
 
