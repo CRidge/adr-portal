@@ -48,7 +48,7 @@
             </div>
 
             <div class="repo-settings__field">
-                <label class="repo-settings__label" for="repo-remote">Git remote URL (optional)</label>
+                <label class="repo-settings__label" for="repo-remote">Git remote URL</label>
                 <InputText id="repo-remote" class="repo-settings__input" @bind-Value="editorModel.GitRemoteUrl" />
                 <ValidationMessage For="() => editorModel.GitRemoteUrl" />
             </div>
@@ -154,11 +154,11 @@
                 var updatedRepository = new ManagedRepository
                 {
                     Id = repositoryId,
-                    DisplayName = editorModel.DisplayName.Trim(),
-                    RootPath = editorModel.RootPath.Trim(),
-                    AdrFolder = editorModel.AdrFolder.Trim(),
+                    DisplayName = ResolveRequiredInput(editorModel.DisplayName),
+                    RootPath = ResolveRequiredInput(editorModel.RootPath),
+                    AdrFolder = ResolveRequiredInput(editorModel.AdrFolder),
                     InboxFolder = NormalizeOptional(editorModel.InboxFolder),
-                    GitRemoteUrl = NormalizeOptional(editorModel.GitRemoteUrl),
+                    GitRemoteUrl = ResolveRequiredInput(editorModel.GitRemoteUrl),
                     IsActive = editorModel.IsActive,
                     CreatedAtUtc = DateTime.UtcNow,
                     UpdatedAtUtc = DateTime.UtcNow
@@ -179,17 +179,13 @@
             }
             else
             {
-                var createdRepository = new ManagedRepository
-                {
-                    DisplayName = editorModel.DisplayName.Trim(),
-                    RootPath = editorModel.RootPath.Trim(),
-                    AdrFolder = editorModel.AdrFolder.Trim(),
-                    InboxFolder = NormalizeOptional(editorModel.InboxFolder),
-                    GitRemoteUrl = NormalizeOptional(editorModel.GitRemoteUrl),
-                    IsActive = editorModel.IsActive,
-                    CreatedAtUtc = DateTime.UtcNow,
-                    UpdatedAtUtc = DateTime.UtcNow
-                };
+                var createdRepository = ManagedRepositoryDefaults.CreateForAdd(
+                    gitRemoteUrl: ResolveRequiredInput(editorModel.GitRemoteUrl),
+                    displayNameOverride: editorModel.DisplayName,
+                    rootPathOverride: editorModel.RootPath,
+                    adrFolderOverride: editorModel.AdrFolder,
+                    inboxFolderOverride: editorModel.InboxFolder,
+                    isActive: editorModel.IsActive);
 
                 var result = await ManagedRepositoryStore.AddAsync(createdRepository, CancellationToken.None);
                 statusMessage = $"Added '{result.DisplayName}'.";
@@ -226,7 +222,7 @@
         editorModel.RootPath = repository.RootPath;
         editorModel.AdrFolder = repository.AdrFolder;
         editorModel.InboxFolder = repository.InboxFolder;
-        editorModel.GitRemoteUrl = repository.GitRemoteUrl;
+        editorModel.GitRemoteUrl = repository.GitRemoteUrl ?? string.Empty;
         editorModel.IsActive = repository.IsActive;
         editContext = new EditContext(editorModel);
         statusMessage = $"Editing '{repository.DisplayName}'.";
@@ -295,9 +291,9 @@
     {
         editorModel.DisplayName = string.Empty;
         editorModel.RootPath = string.Empty;
-        editorModel.AdrFolder = "docs/adr";
+        editorModel.AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder;
         editorModel.InboxFolder = null;
-        editorModel.GitRemoteUrl = null;
+        editorModel.GitRemoteUrl = string.Empty;
         editorModel.IsActive = true;
 
         editContext = new EditContext(editorModel);
@@ -354,5 +350,15 @@
         }
 
         return value.Trim();
+    }
+
+    /// <summary>
+    /// Normalizes required string inputs.
+    /// </summary>
+    /// <param name="value">Input value.</param>
+    /// <returns>Trimmed input value.</returns>
+    private static string ResolveRequiredInput(string? value)
+    {
+        return value?.Trim() ?? string.Empty;
     }
 }

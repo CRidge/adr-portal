@@ -41,6 +41,32 @@ public class ManagedRepositoryStoreTests
     }
 
     [Test]
+    public async Task Add_WithUrlOnlyDefaults_PersistsInferredValues()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = CreateOptions(connection);
+
+        await using var setupContext = new AdrPortalDbContext(options);
+        await setupContext.Database.EnsureCreatedAsync();
+
+        await using var context = new AdrPortalDbContext(options);
+        var store = new ManagedRepositoryStore(context);
+
+        var inferredRepository = ManagedRepositoryDefaults.CreateForAdd("https://github.com/contoso/adr-portal.git");
+        var saved = await store.AddAsync(inferredRepository, CancellationToken.None);
+        var all = await store.GetAllAsync(CancellationToken.None);
+
+        await Assert.That(saved.GitRemoteUrl).IsEqualTo("https://github.com/contoso/adr-portal.git");
+        await Assert.That(saved.DisplayName).IsEqualTo("contoso/adr-portal");
+        await Assert.That(saved.RootPath).IsEqualTo(Path.Combine(ManagedRepositoryDefaults.DefaultRepositoriesRootPath, "contoso", "adr-portal"));
+        await Assert.That(saved.AdrFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultAdrFolder);
+        await Assert.That(saved.InboxFolder).IsNull();
+        await Assert.That(all.Count).IsEqualTo(1);
+        await Assert.That(all[0].DisplayName).IsEqualTo("contoso/adr-portal");
+    }
+
+    [Test]
     public async Task Update_ChangesStoredValues()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");
