@@ -13,10 +13,10 @@
             --text-soft: #6b7280;
             --border: #e5e7eb;
             --accent: #2563eb;
-            --accent-soft: #eaf1ff;
             --success: #15803d;
             --warning: #b45309;
             --danger: #b91c1c;
+            --deprecated: #475569;
             --shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
             --radius: 14px;
         }
@@ -38,13 +38,13 @@
         }
 
         .sidebar {
-            width: 264px;
+            width: 292px;
             background-color: #111827;
             color: #e5e7eb;
             padding: 24px 18px;
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 22px;
         }
 
         .brand {
@@ -104,15 +104,18 @@
             align-items: center;
             font-size: 0.92rem;
             font-weight: 500;
+            border: 1px solid transparent;
         }
 
         .nav-item:hover {
             background-color: #1f2937;
+            border-color: #334155;
         }
 
         .nav-item.active {
             background-color: #1f2937;
             color: #ffffff;
+            border-color: #334155;
         }
 
         .nav-badge {
@@ -122,6 +125,82 @@
             font-weight: 700;
             padding: 2px 7px;
             border-radius: 999px;
+        }
+
+        .repo-list {
+            border-top: 1px solid #374151;
+            padding-top: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .repo-item {
+            text-decoration: none;
+            color: #d1d5db;
+            border: 1px solid #374151;
+            border-radius: 10px;
+            background-color: #1f2937;
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .repo-item:hover {
+            border-color: #475569;
+        }
+
+        .repo-item.active {
+            border-color: #60a5fa;
+            background-color: #1e293b;
+        }
+
+        .repo-item-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #f3f4f6;
+        }
+
+        .repo-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            letter-spacing: 0.02em;
+            color: #bfdbfe;
+            text-transform: uppercase;
+        }
+
+        .repo-indicator::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background-color: #60a5fa;
+        }
+
+        .repo-meta {
+            font-size: 0.76rem;
+            color: #9ca3af;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .repo-manage {
+            margin-top: 4px;
+            text-decoration: none;
+            color: #93c5fd;
+            font-size: 0.79rem;
+            padding: 8px 10px;
+            border-radius: 9px;
+            border: 1px dashed #3b82f6;
+            background-color: #1f2937;
         }
 
         .sidebar-footer {
@@ -150,7 +229,7 @@
 
         .topbar {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 12px;
             flex-wrap: wrap;
@@ -159,7 +238,7 @@
         .search-wrap {
             min-width: 260px;
             flex: 1;
-            max-width: 560px;
+            max-width: 520px;
         }
 
         .search-input {
@@ -177,9 +256,51 @@
             outline: 2px solid #dbeafe;
         }
 
+        .topbar-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .repo-pill {
+            border: 1px solid #bfdbfe;
+            background-color: #eff6ff;
+            color: #1e3a8a;
+            border-radius: 12px;
+            padding: 8px 12px;
+            min-width: 300px;
+        }
+
+        .repo-pill span {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #1d4ed8;
+        }
+
+        .repo-pill strong {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.9rem;
+        }
+
+        .repo-pill em {
+            display: block;
+            margin-top: 2px;
+            font-style: normal;
+            font-size: 0.76rem;
+            color: #1e40af;
+        }
+
         .actions {
             display: inline-flex;
-            gap: 10px;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
 
         .button {
@@ -187,7 +308,7 @@
             background-color: var(--surface);
             border-radius: 10px;
             padding: 9px 14px;
-            font-size: 0.88rem;
+            font-size: 0.86rem;
             font-weight: 600;
             color: var(--text);
             cursor: default;
@@ -200,7 +321,7 @@
         }
 
         .section-heading {
-            margin-top: 4px;
+            margin-top: 2px;
         }
 
         .section-heading h1 {
@@ -213,6 +334,27 @@
             margin: 4px 0 0;
             color: var(--text-soft);
             font-size: 0.94rem;
+        }
+
+        .active-context {
+            background-color: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 18px;
+            align-items: center;
+            font-size: 0.86rem;
+        }
+
+        .active-context strong {
+            font-size: 0.9rem;
+        }
+
+        .active-context span {
+            color: var(--text-soft);
         }
 
         .stats-grid {
@@ -250,6 +392,31 @@
             font-size: 0.82rem;
         }
 
+        .repo-context-card {
+            grid-column: span 2;
+            background-color: #fdfefe;
+        }
+
+        .repo-context-lines {
+            margin: 8px 0 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .repo-context-lines li {
+            font-size: 0.84rem;
+            color: #374151;
+        }
+
+        .repo-context-lines strong {
+            font-size: 0.84rem;
+            color: #111827;
+            margin-right: 6px;
+        }
+
         .content-grid {
             display: grid;
             grid-template-columns: 1.35fr 1fr;
@@ -284,6 +451,70 @@
         .panel-header small {
             color: var(--text-soft);
             font-size: 0.79rem;
+        }
+
+        .filter-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background-color: #fcfdff;
+            flex-wrap: wrap;
+        }
+
+        .filter-row strong {
+            font-size: 0.82rem;
+            color: var(--text-soft);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .filter-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            border-radius: 999px;
+            padding: 4px 10px;
+            border: 1px solid #d1d5db;
+            background-color: #f9fafb;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #374151;
+        }
+
+        .chip.proposed {
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+            background-color: #dbeafe;
+        }
+
+        .chip.accepted {
+            border-color: #bbf7d0;
+            color: var(--success);
+            background-color: #dcfce7;
+        }
+
+        .chip.rejected {
+            border-color: #fecaca;
+            color: var(--danger);
+            background-color: #fee2e2;
+        }
+
+        .chip.superseded {
+            border-color: #fde68a;
+            color: var(--warning);
+            background-color: #fef3c7;
+        }
+
+        .chip.deprecated {
+            border-color: #cbd5e1;
+            color: var(--deprecated);
+            background-color: #f1f5f9;
         }
 
         .adr-list {
@@ -352,6 +583,12 @@
             color: var(--danger);
             background-color: #fee2e2;
             border-color: #fecaca;
+        }
+
+        .status.deprecated {
+            color: var(--deprecated);
+            background-color: #f1f5f9;
+            border-color: #cbd5e1;
         }
 
         .detail {
@@ -459,8 +696,17 @@
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
+            .repo-context-card {
+                grid-column: span 1;
+            }
+
             .content-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .topbar-meta {
+                width: 100%;
+                justify-content: flex-start;
             }
         }
 
@@ -481,6 +727,10 @@
                 gap: 8px;
             }
 
+            .repo-list {
+                gap: 6px;
+            }
+
             .nav-label,
             .sidebar-footer {
                 display: none;
@@ -494,9 +744,23 @@
                 padding: 16px;
             }
 
+            .repo-pill {
+                min-width: 0;
+                width: 100%;
+            }
+
+            .actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
             .adr-row {
                 grid-template-columns: 1fr;
                 gap: 6px;
+            }
+
+            .repo-meta {
+                white-space: normal;
             }
         }
 
@@ -507,6 +771,11 @@
 
             .meta-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .active-context {
+                flex-direction: column;
+                align-items: flex-start;
             }
         }
     </style>
@@ -526,10 +795,35 @@
                 <p class="nav-label">Workspace</p>
                 <a class="nav-item active" href="#" aria-current="page">Dashboard</a>
                 <a class="nav-item" href="#">ADR Library <span class="nav-badge">24</span></a>
+                <a class="nav-item" href="#">Compare Source→Target</a>
                 <a class="nav-item" href="#">Templates</a>
                 <a class="nav-item" href="#">Review Queue <span class="nav-badge">5</span></a>
                 <a class="nav-item" href="#">Settings</a>
             </nav>
+
+            <section class="repo-list" aria-label="Repositories">
+                <p class="nav-label">Repositories</p>
+
+                <a class="repo-item active" href="#" aria-current="true">
+                    <span class="repo-item-head">
+                        contoso/adr-portal-core
+                        <span class="repo-indicator">Active</span>
+                    </span>
+                    <span class="repo-meta">C:\src\contoso\adr-portal-core</span>
+                </a>
+
+                <a class="repo-item" href="#">
+                    <span class="repo-item-head">contoso/identity-service</span>
+                    <span class="repo-meta">C:\src\contoso\identity-service</span>
+                </a>
+
+                <a class="repo-item" href="#">
+                    <span class="repo-item-head">contoso/catalog-api</span>
+                    <span class="repo-meta">C:\src\contoso\catalog-api</span>
+                </a>
+
+                <a class="repo-manage" href="#">Manage repositories · /settings/repos</a>
+            </section>
 
             <div class="sidebar-footer">
                 <h4>Next Governance Review</h4>
@@ -542,9 +836,20 @@
                 <div class="search-wrap">
                     <input class="search-input" type="search" value="Search ADRs by title, domain, status, or owner" aria-label="Search ADRs">
                 </div>
-                <div class="actions">
-                    <button class="button" type="button">Filter</button>
-                    <button class="button primary" type="button">+ New ADR</button>
+
+                <div class="topbar-meta">
+                    <div class="repo-pill" aria-label="Active repository selector">
+                        <span>Active Repository</span>
+                        <strong>contoso/adr-portal-core</strong>
+                        <em>Source: main → Target: architecture-decision-records</em>
+                    </div>
+
+                    <div class="actions">
+                        <button class="button" type="button">Filter</button>
+                        <button class="button" type="button">Compare Source→Target</button>
+                        <button class="button" type="button">/settings/repos</button>
+                        <button class="button primary" type="button">+ New ADR</button>
+                    </div>
                 </div>
             </header>
 
@@ -553,22 +858,42 @@
                 <p>A single place to track decision velocity, review throughput, and current architecture discussions.</p>
             </section>
 
+            <section class="active-context" aria-label="Active repository context">
+                <strong>Active repository context</strong>
+                <span>Path: C:\src\contoso\adr-portal-core</span>
+                <span>ADR folder: /docs/adr</span>
+                <span>Inbox status: 5 new markdown files pending triage</span>
+            </section>
+
             <section class="stats-grid" aria-label="Summary cards">
+                <article class="stat-card repo-context-card">
+                    <p class="label">Repository Context</p>
+                    <p class="value">contoso/adr-portal-core</p>
+                    <ul class="repo-context-lines">
+                        <li><strong>Path:</strong> C:\src\contoso\adr-portal-core</li>
+                        <li><strong>ADR Folder:</strong> /docs/adr</li>
+                        <li><strong>Inbox:</strong> 5 pending decisions imported from PR notes</li>
+                    </ul>
+                </article>
+
                 <article class="stat-card">
                     <p class="label">Open ADRs</p>
                     <p class="value">12</p>
                     <p class="footnote">3 awaiting technical review</p>
                 </article>
+
                 <article class="stat-card">
                     <p class="label">Accepted this quarter</p>
                     <p class="value">9</p>
                     <p class="footnote">+2 vs previous quarter</p>
                 </article>
+
                 <article class="stat-card">
                     <p class="label">Average cycle time</p>
                     <p class="value">6.4 days</p>
                     <p class="footnote">From draft to decision</p>
                 </article>
+
                 <article class="stat-card">
                     <p class="label">Superseded records</p>
                     <p class="value">4</p>
@@ -582,6 +907,18 @@
                         <h2>ADR Library Snapshot</h2>
                         <small>Sorted by recent activity</small>
                     </header>
+
+                    <div class="filter-row" aria-label="Status filters">
+                        <strong>Status filters</strong>
+                        <div class="filter-chips">
+                            <span class="chip proposed">Proposed</span>
+                            <span class="chip accepted">Accepted</span>
+                            <span class="chip rejected">Rejected</span>
+                            <span class="chip superseded">Superseded</span>
+                            <span class="chip deprecated">Deprecated</span>
+                        </div>
+                    </div>
+
                     <div class="adr-list">
                         <div class="adr-row selected">
                             <div>
@@ -591,6 +928,7 @@
                             <span>Updated 2h ago</span>
                             <span class="status proposed">Proposed</span>
                         </div>
+
                         <div class="adr-row">
                             <div>
                                 <strong>ADR-021 • PostgreSQL Read Replica Strategy</strong>
@@ -599,6 +937,7 @@
                             <span>Updated 1d ago</span>
                             <span class="status accepted">Accepted</span>
                         </div>
+
                         <div class="adr-row">
                             <div>
                                 <strong>ADR-018 • Service-to-Service Auth with mTLS</strong>
@@ -607,6 +946,7 @@
                             <span>Updated 3d ago</span>
                             <span class="status accepted">Accepted</span>
                         </div>
+
                         <div class="adr-row">
                             <div>
                                 <strong>ADR-015 • Legacy ETL Retirement Plan</strong>
@@ -615,6 +955,7 @@
                             <span>Updated 5d ago</span>
                             <span class="status superseded">Superseded</span>
                         </div>
+
                         <div class="adr-row">
                             <div>
                                 <strong>ADR-012 • Custom Build Farm Proposal</strong>
@@ -622,6 +963,15 @@
                             </div>
                             <span>Updated 2w ago</span>
                             <span class="status rejected">Rejected</span>
+                        </div>
+
+                        <div class="adr-row">
+                            <div>
+                                <strong>ADR-006 • Legacy RPC Contract Handling</strong>
+                                <span>Integration / Legacy • Owner: Integration Team</span>
+                            </div>
+                            <span>Updated 3w ago</span>
+                            <span class="status deprecated">Deprecated</span>
                         </div>
                     </div>
                 </article>
@@ -631,6 +981,7 @@
                         <h2>ADR Detail Preview</h2>
                         <small>Structure idea for detail screen</small>
                     </header>
+
                     <div class="detail">
                         <div class="title-row">
                             <div>
@@ -648,6 +999,14 @@
                             <div class="meta-item">
                                 <p>Decision Date</p>
                                 <strong>2026-03-12</strong>
+                            </div>
+                            <div class="meta-item">
+                                <p>Source Branch</p>
+                                <strong>main</strong>
+                            </div>
+                            <div class="meta-item">
+                                <p>Target Branch</p>
+                                <strong>architecture-decision-records</strong>
                             </div>
                             <div class="meta-item">
                                 <p>Owner</p>
