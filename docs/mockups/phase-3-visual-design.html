@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADR Portal – Phase 3 Visual Design</title>
+    <style>
+        :root {
+            --bg: #f3f5f8;
+            --surface: #ffffff;
+            --surface-muted: #f8fafc;
+            --text: #1f2937;
+            --text-soft: #6b7280;
+            --border: #e5e7eb;
+            --accent: #2563eb;
+            --accent-soft: #eaf1ff;
+            --success: #15803d;
+            --warning: #b45309;
+            --danger: #b91c1c;
+            --shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+            --radius: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+            color: var(--text);
+            background-color: var(--bg);
+        }
+
+        .app-shell {
+            min-height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 264px;
+            background-color: #111827;
+            color: #e5e7eb;
+            padding: 24px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 8px;
+        }
+
+        .brand-mark {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #bfdbfe;
+        }
+
+        .brand-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .brand-subtitle {
+            margin-top: 2px;
+            color: #9ca3af;
+            font-size: 0.78rem;
+        }
+
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-label {
+            margin: 0 0 6px 10px;
+            font-size: 0.73rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            font-weight: 600;
+        }
+
+        .nav-item {
+            color: #d1d5db;
+            text-decoration: none;
+            padding: 10px 12px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.92rem;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background-color: #1f2937;
+        }
+
+        .nav-item.active {
+            background-color: #1f2937;
+            color: #ffffff;
+        }
+
+        .nav-badge {
+            background-color: #374151;
+            color: #d1d5db;
+            font-size: 0.73rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 999px;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            border: 1px solid #374151;
+            border-radius: 12px;
+            background-color: #1f2937;
+            padding: 12px;
+            font-size: 0.82rem;
+            color: #d1d5db;
+        }
+
+        .sidebar-footer h4 {
+            margin: 0 0 4px;
+            font-size: 0.88rem;
+            color: #f3f4f6;
+        }
+
+        .workspace {
+            flex: 1;
+            padding: 26px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .search-wrap {
+            min-width: 260px;
+            flex: 1;
+            max-width: 560px;
+        }
+
+        .search-input {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 0.94rem;
+            color: var(--text);
+            background-color: var(--surface);
+        }
+
+        .search-input:focus {
+            border-color: #93c5fd;
+            outline: 2px solid #dbeafe;
+        }
+
+        .actions {
+            display: inline-flex;
+            gap: 10px;
+        }
+
+        .button {
+            border: 1px solid var(--border);
+            background-color: var(--surface);
+            border-radius: 10px;
+            padding: 9px 14px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text);
+            cursor: default;
+        }
+
+        .button.primary {
+            background-color: var(--accent);
+            border-color: var(--accent);
+            color: #ffffff;
+        }
+
+        .section-heading {
+            margin-top: 4px;
+        }
+
+        .section-heading h1 {
+            margin: 0;
+            font-size: 1.45rem;
+            font-weight: 700;
+        }
+
+        .section-heading p {
+            margin: 4px 0 0;
+            color: var(--text-soft);
+            font-size: 0.94rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .stat-card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            box-shadow: var(--shadow);
+        }
+
+        .stat-card .label {
+            color: var(--text-soft);
+            font-size: 0.8rem;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 700;
+        }
+
+        .stat-card .value {
+            margin: 8px 0 4px;
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .stat-card .footnote {
+            margin: 0;
+            color: var(--text-soft);
+            font-size: 0.82rem;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1.35fr 1fr;
+            gap: 16px;
+        }
+
+        .panel {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            background-color: var(--surface-muted);
+        }
+
+        .panel-header h2 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .panel-header small {
+            color: var(--text-soft);
+            font-size: 0.79rem;
+        }
+
+        .adr-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .adr-row {
+            display: grid;
+            grid-template-columns: 1.5fr 0.8fr 0.85fr;
+            gap: 8px;
+            align-items: center;
+            padding: 13px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .adr-row:last-child {
+            border-bottom: none;
+        }
+
+        .adr-row strong {
+            display: block;
+            margin-bottom: 2px;
+            font-size: 0.93rem;
+        }
+
+        .adr-row span {
+            color: var(--text-soft);
+            font-size: 0.8rem;
+        }
+
+        .adr-row.selected {
+            background-color: #f5f9ff;
+        }
+
+        .status {
+            justify-self: start;
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+
+        .status.proposed {
+            color: #1d4ed8;
+            background-color: #dbeafe;
+            border-color: #bfdbfe;
+        }
+
+        .status.accepted {
+            color: var(--success);
+            background-color: #dcfce7;
+            border-color: #bbf7d0;
+        }
+
+        .status.superseded {
+            color: var(--warning);
+            background-color: #fef3c7;
+            border-color: #fde68a;
+        }
+
+        .status.rejected {
+            color: var(--danger);
+            background-color: #fee2e2;
+            border-color: #fecaca;
+        }
+
+        .detail {
+            padding: 14px 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .title-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .title-row h3 {
+            margin: 0;
+            font-size: 1.08rem;
+        }
+
+        .title-row p {
+            margin: 4px 0 0;
+            color: var(--text-soft);
+            font-size: 0.85rem;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .meta-item {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background-color: #fbfdff;
+        }
+
+        .meta-item p {
+            margin: 0;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-soft);
+            font-weight: 700;
+        }
+
+        .meta-item strong {
+            display: block;
+            margin-top: 5px;
+            font-size: 0.88rem;
+        }
+
+        .content-block {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 11px;
+            background-color: #ffffff;
+        }
+
+        .content-block h4 {
+            margin: 0 0 8px;
+            font-size: 0.88rem;
+        }
+
+        .content-block p,
+        .content-block li {
+            margin: 0;
+            color: #374151;
+            font-size: 0.86rem;
+            line-height: 1.45;
+        }
+
+        .content-block ul {
+            margin: 0;
+            padding-left: 18px;
+            display: grid;
+            gap: 4px;
+        }
+
+        .timeline {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .timeline li {
+            border-left: 2px solid #dbeafe;
+            padding-left: 8px;
+        }
+
+        .timeline time {
+            display: block;
+            color: var(--text-soft);
+            font-size: 0.74rem;
+        }
+
+        @media (max-width: 1180px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .app-shell {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                padding: 14px;
+                gap: 12px;
+            }
+
+            .nav-group {
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .nav-label,
+            .sidebar-footer {
+                display: none;
+            }
+
+            .nav-item {
+                background-color: #1f2937;
+            }
+
+            .workspace {
+                padding: 16px;
+            }
+
+            .adr-row {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .meta-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar" aria-label="Primary navigation">
+            <div class="brand">
+                <div class="brand-mark">ADR</div>
+                <div>
+                    <div class="brand-title">ADR Portal</div>
+                    <div class="brand-subtitle">Architecture records hub</div>
+                </div>
+            </div>
+
+            <nav class="nav-group" aria-label="Main sections">
+                <p class="nav-label">Workspace</p>
+                <a class="nav-item active" href="#" aria-current="page">Dashboard</a>
+                <a class="nav-item" href="#">ADR Library <span class="nav-badge">24</span></a>
+                <a class="nav-item" href="#">Templates</a>
+                <a class="nav-item" href="#">Review Queue <span class="nav-badge">5</span></a>
+                <a class="nav-item" href="#">Settings</a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <h4>Next Governance Review</h4>
+                <div>Friday, 14:00 • Architecture Board</div>
+            </div>
+        </aside>
+
+        <main class="workspace">
+            <header class="topbar">
+                <div class="search-wrap">
+                    <input class="search-input" type="search" value="Search ADRs by title, domain, status, or owner" aria-label="Search ADRs">
+                </div>
+                <div class="actions">
+                    <button class="button" type="button">Filter</button>
+                    <button class="button primary" type="button">+ New ADR</button>
+                </div>
+            </header>
+
+            <section class="section-heading" aria-label="Dashboard overview">
+                <h1>Dashboard Overview</h1>
+                <p>A single place to track decision velocity, review throughput, and current architecture discussions.</p>
+            </section>
+
+            <section class="stats-grid" aria-label="Summary cards">
+                <article class="stat-card">
+                    <p class="label">Open ADRs</p>
+                    <p class="value">12</p>
+                    <p class="footnote">3 awaiting technical review</p>
+                </article>
+                <article class="stat-card">
+                    <p class="label">Accepted this quarter</p>
+                    <p class="value">9</p>
+                    <p class="footnote">+2 vs previous quarter</p>
+                </article>
+                <article class="stat-card">
+                    <p class="label">Average cycle time</p>
+                    <p class="value">6.4 days</p>
+                    <p class="footnote">From draft to decision</p>
+                </article>
+                <article class="stat-card">
+                    <p class="label">Superseded records</p>
+                    <p class="value">4</p>
+                    <p class="footnote">Consolidation in progress</p>
+                </article>
+            </section>
+
+            <section class="content-grid" aria-label="ADR list and detail layout">
+                <article class="panel">
+                    <header class="panel-header">
+                        <h2>ADR Library Snapshot</h2>
+                        <small>Sorted by recent activity</small>
+                    </header>
+                    <div class="adr-list">
+                        <div class="adr-row selected">
+                            <div>
+                                <strong>ADR-024 • API Gateway Caching Layer</strong>
+                                <span>Platform / Observability • Owner: Platform Team</span>
+                            </div>
+                            <span>Updated 2h ago</span>
+                            <span class="status proposed">Proposed</span>
+                        </div>
+                        <div class="adr-row">
+                            <div>
+                                <strong>ADR-021 • PostgreSQL Read Replica Strategy</strong>
+                                <span>Data / Scalability • Owner: Data Team</span>
+                            </div>
+                            <span>Updated 1d ago</span>
+                            <span class="status accepted">Accepted</span>
+                        </div>
+                        <div class="adr-row">
+                            <div>
+                                <strong>ADR-018 • Service-to-Service Auth with mTLS</strong>
+                                <span>Security / Identity • Owner: Security Guild</span>
+                            </div>
+                            <span>Updated 3d ago</span>
+                            <span class="status accepted">Accepted</span>
+                        </div>
+                        <div class="adr-row">
+                            <div>
+                                <strong>ADR-015 • Legacy ETL Retirement Plan</strong>
+                                <span>Data / Migration • Owner: Core Engineering</span>
+                            </div>
+                            <span>Updated 5d ago</span>
+                            <span class="status superseded">Superseded</span>
+                        </div>
+                        <div class="adr-row">
+                            <div>
+                                <strong>ADR-012 • Custom Build Farm Proposal</strong>
+                                <span>Developer Experience • Owner: Build Team</span>
+                            </div>
+                            <span>Updated 2w ago</span>
+                            <span class="status rejected">Rejected</span>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <header class="panel-header">
+                        <h2>ADR Detail Preview</h2>
+                        <small>Structure idea for detail screen</small>
+                    </header>
+                    <div class="detail">
+                        <div class="title-row">
+                            <div>
+                                <h3>ADR-024: Introduce API Gateway Response Caching</h3>
+                                <p>Goal: reduce median read latency for public catalog endpoints.</p>
+                            </div>
+                            <span class="status proposed">Proposed</span>
+                        </div>
+
+                        <div class="meta-grid">
+                            <div class="meta-item">
+                                <p>Domain</p>
+                                <strong>Platform Architecture</strong>
+                            </div>
+                            <div class="meta-item">
+                                <p>Decision Date</p>
+                                <strong>2026-03-12</strong>
+                            </div>
+                            <div class="meta-item">
+                                <p>Owner</p>
+                                <strong>Platform Team</strong>
+                            </div>
+                            <div class="meta-item">
+                                <p>Reviewers</p>
+                                <strong>Security, SRE, API Guild</strong>
+                            </div>
+                        </div>
+
+                        <section class="content-block">
+                            <h4>Decision Summary</h4>
+                            <p>
+                                Use route-level TTL caching in the API gateway for read-heavy endpoints, with explicit bypass for
+                                authenticated and mutation requests.
+                            </p>
+                        </section>
+
+                        <section class="content-block">
+                            <h4>Options Considered</h4>
+                            <ul>
+                                <li>Service-level in-memory caching</li>
+                                <li>Dedicated distributed cache per bounded context</li>
+                                <li>Gateway-managed response caching (recommended)</li>
+                            </ul>
+                        </section>
+
+                        <section class="content-block">
+                            <h4>Review Timeline</h4>
+                            <ul class="timeline">
+                                <li>
+                                    <time>2026-03-07</time>
+                                    Draft submitted by Platform Team.
+                                </li>
+                                <li>
+                                    <time>2026-03-09</time>
+                                    Security review requested for cache poisoning safeguards.
+                                </li>
+                                <li>
+                                    <time>2026-03-12</time>
+                                    Architecture board decision meeting scheduled.
+                                </li>
+                            </ul>
+                        </section>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+</body>
+</html>
