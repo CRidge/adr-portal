@@ -11,10 +11,10 @@ public class HomePageContentTests
 
         var homeMarkup = await File.ReadAllTextAsync(normalizedPath);
 
-        await Assert.That(homeMarkup.Contains("Phase 8", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(homeMarkup.Contains("Global ADR library and sync workflows are active", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Phase 9", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("AI codebase bootstrap", StringComparison.OrdinalIgnoreCase)).IsTrue();
         await Assert.That(homeMarkup.Contains("/global", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(homeMarkup.Contains("/settings/repos", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Bootstrap ADRs with AI", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
@@ -57,7 +57,7 @@ public class HomePageContentTests
         await Assert.That(markup.Contains("shell__repo-list", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/repos/{repository.Id}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__repo-indicator", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(markup.Contains("Phase 8 global ADR library and sync workflows", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Phase 9 AI codebase bootstrap + global ADR sync workflows", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
@@ -75,6 +75,10 @@ public class HomePageContentTests
         await Assert.That(listMarkup.Contains("Status filters", StringComparison.Ordinal)).IsTrue();
         await Assert.That(listMarkup.Contains("Search ADRs", StringComparison.Ordinal)).IsTrue();
         await Assert.That(listMarkup.Contains("+ New ADR", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(listMarkup.Contains("Bootstrap ADRs with AI", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(listMarkup.Contains("Accept selected proposals", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(listMarkup.Contains("Queued", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(listMarkup.Contains("Git/PR workflow", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/{Number:int}\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("state-badge", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Render(result.Value.Adr.RawMarkdown)", StringComparison.Ordinal)).IsTrue();

@@ -17,6 +17,7 @@ builder.Services.AddScoped<RepositoryCatalogState>();
 builder.Services.AddScoped<IMadrRepositoryFactory, MadrRepositoryFactory>();
 builder.Services.AddScoped<AdrDocumentService>();
 builder.Services.AddScoped<GlobalLibraryService>();
+builder.Services.AddScoped<AiBootstrapService>();
 builder.Services.AddSingleton<AdrListViewService>();
 builder.Services.AddSingleton<IAdrMarkdownRenderer, AdrMarkdownRenderer>();
 
