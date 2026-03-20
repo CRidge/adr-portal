@@ -98,6 +98,50 @@ a {
     color: var(--app-accent);
 }
 
+.shell__nav-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.63rem 0.72rem;
+    border-radius: 0.62rem;
+    border: 1px solid transparent;
+    color: var(--app-sidebar-text);
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 500;
+}
+
+.shell__nav-link:hover,
+.shell__nav-link.active {
+    border-color: var(--app-sidebar-hover-border);
+    background-color: var(--app-sidebar-surface-hover);
+}
+
+.shell__nav-link.active {
+    color: var(--app-sidebar-text-strong);
+}
+
+.shell__repo-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.55rem 0.62rem;
+    border: 1px solid var(--app-sidebar-border);
+    border-radius: 0.62rem;
+    background-color: var(--app-sidebar-surface);
+    text-decoration: none;
+}
+
+.shell__repo-item.active {
+    border-color: var(--app-sidebar-accent);
+    background-color: var(--app-sidebar-surface-hover);
+}
+
+.shell__repo-item:hover {
+    border-color: var(--app-sidebar-hover-border);
+}
+
 .panel {
     display: flex;
     flex-direction: column;
@@ -124,6 +168,10 @@ h1 {
     color: var(--app-heading);
     font-size: clamp(1.4rem, 3vw, 1.95rem);
     line-height: 1.2;
+}
+
+h1:focus {
+    outline: none;
 }
 
 h2 {
