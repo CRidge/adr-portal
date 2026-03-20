@@ -1,0 +1,498 @@
+@page "/compare"
+@using System.Globalization
+@using AdrPortal.Core.Ai
+@inject IManagedRepositoryStore ManagedRepositoryStore
+@inject RepositoryComparisonService RepositoryComparisonService
+
+<PageTitle>Compare repositories</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <section class="panel compare-page">
+        <h1>Compare repositories</h1>
+        <p class="repo-status repo-status--error">@loadError</p>
+        <a class="inline-link" href="/settings/repos">Manage repositories</a>
+    </section>
+}
+else if (repositories.Count < 2)
+{
+    <section class="panel compare-page">
+        <h1>Compare repositories</h1>
+        <p class="shell__hint">
+            Configure at least two repositories under <a class="inline-link" href="/settings/repos">/settings/repos</a>
+            before running source-to-target comparison.
+        </p>
+    </section>
+}
+else
+{
+    <section class="panel compare-page">
+        <header class="compare-page__header">
+            <div>
+                <p class="eyebrow">Phase 13</p>
+                <h1>Source → target ADR comparison</h1>
+                <p class="lead">
+                    Select source and target repositories, rank source ADR relevance against the target ADR corpus,
+                    then import selected source ADRs into the target as proposed drafts.
+                </p>
+            </div>
+        </header>
+
+        <div class="compare-controls">
+            <div class="compare-controls__field">
+                <label class="compare-controls__label" for="compare-source">Source repository</label>
+                <InputSelect id="compare-source" class="compare-controls__select" @bind-Value="sourceRepositoryId">
+                    <option value="0">Select source repository</option>
+                    @foreach (var repository in repositories)
+                    {
+                        <option value="@repository.Id">@repository.DisplayName</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="compare-controls__field">
+                <label class="compare-controls__label" for="compare-target">Target repository</label>
+                <InputSelect id="compare-target" class="compare-controls__select" @bind-Value="targetRepositoryId">
+                    <option value="0">Select target repository</option>
+                    @foreach (var repository in repositories)
+                    {
+                        <option value="@repository.Id">@repository.DisplayName</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="compare-controls__actions">
+                <button type="button"
+                        class="compare-controls__button compare-controls__button--primary"
+                        @onclick="CompareAsync"
+                        disabled="@(!CanCompare() || isComparing || isImporting)">
+                    @(isComparing ? "Scoring relevance..." : "Compare repositories")
+                </button>
+                <button type="button"
+                        class="compare-controls__button"
+                        @onclick="ClearComparison"
+                        disabled="@(comparison is null || isComparing || isImporting)">
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(compareMessage))
+        {
+            <p class="@GetMessageCssClass(compareMessageIsError)">@compareMessage</p>
+        }
+    </section>
+
+    @if (comparison is not null)
+    {
+        <section class="panel compare-results">
+            <header class="compare-results__header">
+                <h2>Ranked source ADR list</h2>
+                <small>@comparison.RankedSourceAdrs.Count row(s)</small>
+            </header>
+            <div class="compare-results__context">
+                <span><strong>Source:</strong> @comparison.SourceRepository.DisplayName</span>
+                <span><strong>Target:</strong> @comparison.TargetRepository.DisplayName</span>
+                <span><strong>Source ADRs:</strong> @comparison.SourceAdrCount</span>
+                <span><strong>Target ADRs:</strong> @comparison.TargetAdrCount</span>
+                <span><strong>Compared:</strong> @comparison.ComparedAtUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture)</span>
+            </div>
+
+            @if (comparison.RankedSourceAdrs.Count is 0)
+            {
+                <p class="compare-results__empty">
+                    The selected source repository does not currently contain ADR markdown files.
+                </p>
+            }
+            else
+            {
+                <table class="compare-results__table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Import</th>
+                            <th scope="col">Source ADR</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Relevance score</th>
+                            <th scope="col">Target overlap</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in comparison.RankedSourceAdrs)
+                        {
+                            var isSelected = selectedSourceAdrNumbers.Contains(row.SourceAdrNumber);
+                            var sourceStatusView = AdrStatusViewModel.FromStatus(row.SourceStatus);
+                            <tr class="@GetResultRowCssClass(isSelected)">
+                                <td>
+                                    <input type="checkbox"
+                                           checked="@isSelected"
+                                           @onchange="eventArgs => ToggleSelection(row.SourceAdrNumber, eventArgs)"
+                                           disabled="@isImporting" />
+                                </td>
+                                <td>
+                                    <a class="inline-link" href="@($"/repos/{comparison.SourceRepository.Id}/adr/{row.SourceAdrNumber}")">
+                                        @FormatAdrNumber(row.SourceAdrNumber): @row.SourceTitle
+                                    </a>
+                                    <div class="compare-results__meta">@row.SourceSlug</div>
+                                    @if (row.IsLibraryLinked && row.GlobalId is not null && row.GlobalVersion is not null)
+                                    {
+                                        <div class="compare-results__meta">
+                                            global-id: <code>@row.GlobalId</code> · global-version: @row.GlobalVersion
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="state-badge @sourceStatusView.CssModifier">@sourceStatusView.Label</span>
+                                </td>
+                                <td>
+                                    <div class="compare-results__score">
+                                        @row.RelevanceScore.ToString("0.000", CultureInfo.InvariantCulture)
+                                    </div>
+                                    <div class="compare-results__meta">@row.RelevanceSummary</div>
+                                    @if (row.IsFallback && !string.IsNullOrWhiteSpace(row.FallbackReason))
+                                    {
+                                        <div class="compare-results__meta">Fallback: @row.FallbackReason</div>
+                                    }
+                                </td>
+                                <td>
+                                    @if (row.TargetMatches.Count is 0)
+                                    {
+                                        <span class="shell__hint">No target matches</span>
+                                    }
+                                    else
+                                    {
+                                        <ul class="compare-results__matches">
+                                            @foreach (var match in row.TargetMatches.Take(4))
+                                            {
+                                                <li>
+                                                    <span class="@GetImpactCssClass(match.ImpactLevel)">@match.ImpactLevel</span>
+                                                    <a class="inline-link" href="@($"/repos/{comparison.TargetRepository.Id}/adr/{match.TargetAdrNumber}")">
+                                                        @FormatAdrNumber(match.TargetAdrNumber): @match.TargetTitle
+                                                    </a>
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="compare-results__actions">
+                    <button type="button"
+                            class="compare-controls__button compare-controls__button--primary"
+                            @onclick="ImportSelectedAsync"
+                            disabled="@(!CanImportSelected() || isImporting || isComparing)">
+                        @(isImporting ? "Importing selected ADRs..." : $"Import selected ADRs as proposed ({selectedSourceAdrNumbers.Count})")
+                    </button>
+                    <span class="shell__hint">
+                        Import writes proposed ADR drafts in the target repository using remapped sequential IDs.
+                    </span>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(importMessage))
+            {
+                <p class="@GetMessageCssClass(importMessageIsError)">@importMessage</p>
+            }
+        </section>
+    }
+
+    @if (importResult is not null)
+    {
+        <section class="panel compare-import">
+            <h2>Import result</h2>
+            <p class="lead">
+                Imported @importResult.ImportedItems.Count ADR(s) into @importResult.TargetRepository.DisplayName.
+                Global registrations created: @importResult.GlobalRegistrationsCreated.
+                Global instance mappings upserted: @importResult.GlobalInstancesUpserted.
+            </p>
+            <ul class="compare-import__list">
+                @foreach (var item in importResult.ImportedItems)
+                {
+                    <li>
+                        <a class="inline-link" href="@($"/repos/{importResult.TargetRepository.Id}/adr/{item.ImportedTargetAdrNumber}")">
+                            @FormatAdrNumber(item.ImportedTargetAdrNumber): @item.ImportedTitle
+                        </a>
+                        <span class="state-badge proposed">Proposed</span>
+                        @if (item.GlobalId is not null && item.GlobalVersion is not null)
+                        {
+                            <span class="compare-import__meta">global-id: <code>@item.GlobalId</code> · global-version: @item.GlobalVersion</span>
+                        }
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+}
+
+@code
+{
+    private IReadOnlyList<ManagedRepository> repositories = [];
+    private int sourceRepositoryId;
+    private int targetRepositoryId;
+    private RepositoryComparisonResult? comparison;
+    private RepositoryComparisonImportResult? importResult;
+    private HashSet<int> selectedSourceAdrNumbers = [];
+    private bool isComparing;
+    private bool isImporting;
+    private string? loadError;
+    private string? compareMessage;
+    private bool compareMessageIsError;
+    private string? importMessage;
+    private bool importMessageIsError;
+
+    /// <summary>
+    /// Loads managed repositories for source and target selectors.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRepositoriesAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Runs source-to-target relevance comparison using AI-affected ADR analysis.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task CompareAsync()
+    {
+        if (!CanCompare())
+        {
+            compareMessageIsError = true;
+            compareMessage = "Select distinct source and target repositories before running comparison.";
+            return;
+        }
+
+        isComparing = true;
+        compareMessage = null;
+        compareMessageIsError = false;
+        importMessage = null;
+        importMessageIsError = false;
+        importResult = null;
+        selectedSourceAdrNumbers = [];
+
+        try
+        {
+            comparison = await RepositoryComparisonService.CompareAsync(sourceRepositoryId, targetRepositoryId, CancellationToken.None);
+            selectedSourceAdrNumbers = comparison.RankedSourceAdrs
+                .Where(row => row.RelevanceScore >= 0.6)
+                .Select(row => row.SourceAdrNumber)
+                .ToHashSet();
+            compareMessage = $"Ranked {comparison.RankedSourceAdrs.Count} source ADR(s) by target relevance.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            comparison = null;
+            compareMessageIsError = true;
+            compareMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            comparison = null;
+            compareMessageIsError = true;
+            compareMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            comparison = null;
+            compareMessageIsError = true;
+            compareMessage = exception.Message;
+        }
+        finally
+        {
+            isComparing = false;
+        }
+    }
+
+    /// <summary>
+    /// Imports selected source ADRs into the target repository using deterministic ID remapping.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task ImportSelectedAsync()
+    {
+        if (!CanImportSelected())
+        {
+            importMessageIsError = true;
+            importMessage = "Select at least one source ADR row before importing.";
+            return;
+        }
+
+        isImporting = true;
+        importMessage = null;
+        importMessageIsError = false;
+
+        try
+        {
+            importResult = await RepositoryComparisonService.ImportSelectedAsync(
+                sourceRepositoryId,
+                targetRepositoryId,
+                selectedSourceAdrNumbers.ToArray(),
+                CancellationToken.None);
+            importMessage = $"Imported {importResult.ImportedItems.Count} ADR(s) into {importResult.TargetRepository.DisplayName}.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            importResult = null;
+            importMessageIsError = true;
+            importMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            importResult = null;
+            importMessageIsError = true;
+            importMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            importResult = null;
+            importMessageIsError = true;
+            importMessage = exception.Message;
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    /// <summary>
+    /// Clears comparison and import projections.
+    /// </summary>
+    private void ClearComparison()
+    {
+        comparison = null;
+        importResult = null;
+        selectedSourceAdrNumbers = [];
+        compareMessage = null;
+        compareMessageIsError = false;
+        importMessage = null;
+        importMessageIsError = false;
+    }
+
+    /// <summary>
+    /// Toggles one source ADR selection row.
+    /// </summary>
+    /// <param name="sourceAdrNumber">Source ADR number.</param>
+    /// <param name="eventArgs">Checkbox change event arguments.</param>
+    private void ToggleSelection(int sourceAdrNumber, ChangeEventArgs eventArgs)
+    {
+        if (ParseCheckboxValue(eventArgs.Value))
+        {
+            _ = selectedSourceAdrNumbers.Add(sourceAdrNumber);
+            return;
+        }
+
+        _ = selectedSourceAdrNumbers.Remove(sourceAdrNumber);
+    }
+
+    /// <summary>
+    /// Loads repository selector options and initializes defaults.
+    /// </summary>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task LoadRepositoriesAsync(CancellationToken ct)
+    {
+        loadError = null;
+        repositories = [];
+
+        try
+        {
+            repositories = await ManagedRepositoryStore.GetAllAsync(ct);
+            if (repositories.Count >= 2 && sourceRepositoryId is 0 && targetRepositoryId is 0)
+            {
+                sourceRepositoryId = repositories[0].Id;
+                targetRepositoryId = repositories[1].Id;
+            }
+        }
+        catch (InvalidOperationException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            loadError = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            loadError = exception.Message;
+        }
+    }
+
+    /// <summary>
+    /// Determines whether source and target selectors form a valid compare request.
+    /// </summary>
+    /// <returns><see langword="true"/> when compare can execute.</returns>
+    private bool CanCompare()
+    {
+        return sourceRepositoryId > 0
+            && targetRepositoryId > 0
+            && sourceRepositoryId != targetRepositoryId;
+    }
+
+    /// <summary>
+    /// Determines whether selected rows can be imported.
+    /// </summary>
+    /// <returns><see langword="true"/> when import can execute.</returns>
+    private bool CanImportSelected()
+    {
+        return comparison is not null && selectedSourceAdrNumbers.Count > 0 && CanCompare();
+    }
+
+    /// <summary>
+    /// Parses checkbox values from change event payloads.
+    /// </summary>
+    /// <param name="value">Event value.</param>
+    /// <returns><see langword="true"/> when value represents checked state.</returns>
+    private static bool ParseCheckboxValue(object? value)
+    {
+        return value switch
+        {
+            bool parsedBoolean => parsedBoolean,
+            string text when bool.TryParse(text, out var parsed) => parsed,
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Formats ADR number with route display prefix.
+    /// </summary>
+    /// <param name="adrNumber">ADR number.</param>
+    /// <returns>Formatted ADR token.</returns>
+    private static string FormatAdrNumber(int adrNumber)
+    {
+        return $"ADR-{adrNumber.ToString("0000", CultureInfo.InvariantCulture)}";
+    }
+
+    /// <summary>
+    /// Maps impact levels to CSS classes.
+    /// </summary>
+    /// <param name="impactLevel">Impact level value.</param>
+    /// <returns>CSS class value.</returns>
+    private static string GetImpactCssClass(AdrImpactLevel impactLevel)
+    {
+        return impactLevel switch
+        {
+            AdrImpactLevel.High => "compare-impact compare-impact--high",
+            AdrImpactLevel.Medium => "compare-impact compare-impact--medium",
+            _ => "compare-impact compare-impact--low"
+        };
+    }
+
+    /// <summary>
+    /// Builds row CSS class for selected table rows.
+    /// </summary>
+    /// <param name="isSelected">Selection state.</param>
+    /// <returns>CSS class value.</returns>
+    private static string GetResultRowCssClass(bool isSelected)
+    {
+        return isSelected ? "compare-row compare-row--selected" : "compare-row";
+    }
+
+    /// <summary>
+    /// Builds message CSS class for status banners.
+    /// </summary>
+    /// <param name="isError">Error state flag.</param>
+    /// <returns>CSS class value.</returns>
+    private static string GetMessageCssClass(bool isError)
+    {
+        return isError ? "repo-status repo-status--error" : "repo-status";
+    }
+}
