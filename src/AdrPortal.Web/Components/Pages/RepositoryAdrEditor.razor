@@ -145,6 +145,12 @@ else
                         disabled="@(isSaving || isEvaluatingRecommendation || editContext is null)">
                     @(isEvaluatingRecommendation ? "Evaluating..." : "Evaluate ADR draft")
                 </button>
+                <button type="button"
+                        class="adr-editor__button adr-editor__button--manual"
+                        @onclick="InsertManualEvaluationScaffoldAsync"
+                        disabled="@(isSaving || isEvaluatingRecommendation || editContext is null)">
+                    Insert manual evaluation scaffold
+                </button>
             </div>
             <p class="adr-editor__hint">
                 Tip: run AI evaluation after writing options/pros/cons, then save and use ADR detail to manage lifecycle and global sync.
@@ -163,6 +169,14 @@ else
                 <p><strong>Preferred option:</strong> @recommendation.PreferredOption</p>
                 <p>@recommendation.RecommendationSummary</p>
                 <p class="adr-editor-ai__fit">@recommendation.DecisionFit</p>
+                <div class="adr-editor-ai__actions">
+                    <button type="button"
+                            class="adr-editor__button adr-editor__button--analysis"
+                            @onclick="ApplyRecommendationToDraftAsync"
+                            disabled="@(isSaving || isEvaluatingRecommendation || editContext is null)">
+                        Apply recommendation to draft body
+                    </button>
+                </div>
                 @if (recommendation.IsFallback)
                 {
                     <p class="adr-editor-ai__fallback">
@@ -183,7 +197,28 @@ else
                                 <li>
                                     <strong>@option.OptionName</strong>
                                     <span> (score @option.Score.ToString("0.00"))</span>
+                                    <p class="adr-editor-ai__option-summary">@option.Summary</p>
                                     <p>@option.Rationale</p>
+                                    @if (option.Pros.Count > 0)
+                                    {
+                                        <p><strong>Pros</strong></p>
+                                        <ul class="adr-editor-ai__sublist">
+                                            @foreach (var pro in option.Pros)
+                                            {
+                                                <li>@pro</li>
+                                            }
+                                        </ul>
+                                    }
+                                    @if (option.Cons.Count > 0)
+                                    {
+                                        <p><strong>Cons</strong></p>
+                                        <ul class="adr-editor-ai__sublist">
+                                            @foreach (var con in option.Cons)
+                                            {
+                                                <li>@con</li>
+                                            }
+                                        </ul>
+                                    }
                                 </li>
                             }
                         </ul>
@@ -213,6 +248,28 @@ else
                         </ul>
                     </div>
                 }
+            </section>
+        }
+
+        @if (ShouldShowManualFallbackPath())
+        {
+            <section class="adr-editor-manual">
+                <h3>Manual evaluation path</h3>
+                <p>
+                    AI guidance is unavailable or running in deterministic fallback mode. You can still complete this ADR manually:
+                </p>
+                <ol>
+                    <li>Capture at least three options in <strong>Considered Options</strong>.</li>
+                    <li>Add explicit <strong>Pros</strong> and <strong>Cons</strong> per option.</li>
+                    <li>Record the chosen option and rationale under <strong>Decision Outcome</strong>.</li>
+                    <li>List risks and expected consequences under <strong>Consequences</strong>.</li>
+                </ol>
+                <button type="button"
+                        class="adr-editor__button adr-editor__button--manual"
+                        @onclick="InsertManualEvaluationScaffoldAsync"
+                        disabled="@(isSaving || isEvaluatingRecommendation || editContext is null)">
+                    Insert manual scaffold into markdown body
+                </button>
             </section>
         }
     </section>
@@ -466,10 +523,340 @@ else
             recommendationIsError = true;
             recommendationMessage = exception.Message;
         }
+        catch (Exception exception)
+        {
+            recommendationIsError = true;
+            recommendationMessage = $"Unable to generate AI recommendation. {exception.Message} Use the manual evaluation scaffold to continue.";
+        }
         finally
         {
             isEvaluatingRecommendation = false;
         }
+    }
+
+    /// <summary>
+    /// Applies current recommendation details into the markdown body sections.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private Task ApplyRecommendationToDraftAsync()
+    {
+        if (editContext is null || recommendation is null || isSaving || isEvaluatingRecommendation)
+        {
+            return Task.CompletedTask;
+        }
+
+        var updatedMarkdown = BuildMarkdownWithRecommendation(editorModel.MarkdownBody, recommendation);
+        editorModel.MarkdownBody = updatedMarkdown;
+        editContext.NotifyFieldChanged(new FieldIdentifier(editorModel, nameof(AdrEditorModel.MarkdownBody)));
+        recommendationMessage = "Applied recommendation content to markdown body. Review and adjust before saving.";
+        recommendationIsError = false;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Inserts a manual evaluation scaffold in markdown body for non-AI workflows.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private Task InsertManualEvaluationScaffoldAsync()
+    {
+        if (editContext is null || isSaving || isEvaluatingRecommendation)
+        {
+            return Task.CompletedTask;
+        }
+
+        editorModel.MarkdownBody = BuildMarkdownWithManualScaffold(editorModel.MarkdownBody);
+        editContext.NotifyFieldChanged(new FieldIdentifier(editorModel, nameof(AdrEditorModel.MarkdownBody)));
+        recommendation = null;
+        recommendationIsError = false;
+        recommendationMessage = "Inserted manual evaluation scaffold. Complete options, pros/cons, recommendation, and risks.";
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Gets whether manual fallback instructions should be shown.
+    /// </summary>
+    /// <returns><see langword="true"/> when manual path should be rendered; otherwise <see langword="false"/>.</returns>
+    private bool ShouldShowManualFallbackPath()
+    {
+        if (recommendation is not null && recommendation.IsFallback)
+        {
+            return true;
+        }
+
+        if (recommendationIsError && !string.IsNullOrWhiteSpace(recommendationMessage))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Builds markdown with manual scaffold details.
+    /// </summary>
+    /// <param name="currentMarkdown">Current markdown body.</param>
+    /// <returns>Markdown body containing manual evaluation scaffold sections.</returns>
+    private static string BuildMarkdownWithManualScaffold(string currentMarkdown)
+    {
+        var normalized = NormalizeMarkdown(currentMarkdown);
+        var consideredOptionsContent = """
+        - Option A
+          - Pros:
+            - 
+          - Cons:
+            - 
+        - Option B
+          - Pros:
+            - 
+          - Cons:
+            - 
+        - Option C
+          - Pros:
+            - 
+          - Cons:
+            - 
+        """;
+        var decisionOutcomeContent = """
+        Chosen option: 
+        
+        Rationale:
+        - 
+        
+        Rejected alternatives:
+        - 
+        """;
+        var consequencesContent = """
+        - Positive:
+          - 
+        - Negative:
+          - 
+        - Risks and mitigations:
+          - Risk: 
+            Mitigation: 
+        """;
+
+        normalized = UpsertSection(normalized, "## Considered Options", consideredOptionsContent);
+        normalized = UpsertSection(normalized, "## Decision Outcome", decisionOutcomeContent);
+        normalized = UpsertSection(normalized, "### Consequences", consequencesContent);
+        return normalized;
+    }
+
+    /// <summary>
+    /// Builds markdown with recommendation details populated into core ADR sections.
+    /// </summary>
+    /// <param name="currentMarkdown">Current markdown body.</param>
+    /// <param name="analysis">Recommendation analysis payload.</param>
+    /// <returns>Markdown with recommendation content inserted.</returns>
+    private static string BuildMarkdownWithRecommendation(
+        string currentMarkdown,
+        AdrEvaluationRecommendation analysis)
+    {
+        var normalized = NormalizeMarkdown(currentMarkdown);
+        var consideredOptionsContent = BuildConsideredOptionsContent(analysis);
+        var decisionOutcomeContent = BuildDecisionOutcomeContent(analysis);
+        var consequencesContent = BuildConsequencesContent(analysis);
+
+        normalized = UpsertSection(normalized, "## Considered Options", consideredOptionsContent);
+        normalized = UpsertSection(normalized, "## Decision Outcome", decisionOutcomeContent);
+        normalized = UpsertSection(normalized, "### Consequences", consequencesContent);
+        return normalized;
+    }
+
+    /// <summary>
+    /// Formats considered options markdown from recommendation options.
+    /// </summary>
+    /// <param name="analysis">Recommendation analysis payload.</param>
+    /// <returns>Markdown section content.</returns>
+    private static string BuildConsideredOptionsContent(AdrEvaluationRecommendation analysis)
+    {
+        if (analysis.Options.Count is 0)
+        {
+            return "- No options were generated. Add options manually.";
+        }
+
+        var builder = new System.Text.StringBuilder();
+        foreach (var option in analysis.Options)
+        {
+            builder.AppendLine($"- {option.OptionName} (score {option.Score:0.00})");
+            builder.AppendLine($"  - Summary: {option.Summary}");
+            if (option.Pros.Count > 0)
+            {
+                builder.AppendLine("  - Pros:");
+                foreach (var pro in option.Pros)
+                {
+                    builder.AppendLine($"    - {pro}");
+                }
+            }
+
+            if (option.Cons.Count > 0)
+            {
+                builder.AppendLine("  - Cons:");
+                foreach (var con in option.Cons)
+                {
+                    builder.AppendLine($"    - {con}");
+                }
+            }
+
+            builder.AppendLine($"  - Evaluation notes: {option.Rationale}");
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Formats decision outcome markdown from recommendation summary.
+    /// </summary>
+    /// <param name="analysis">Recommendation analysis payload.</param>
+    /// <returns>Markdown section content.</returns>
+    private static string BuildDecisionOutcomeContent(AdrEvaluationRecommendation analysis)
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.AppendLine($"Chosen option: {analysis.PreferredOption}");
+        builder.AppendLine();
+        builder.AppendLine($"Rationale: {analysis.RecommendationSummary}");
+        builder.AppendLine();
+        builder.AppendLine($"Decision fit: {analysis.DecisionFit}");
+        if (analysis.IsFallback)
+        {
+            builder.AppendLine();
+            var fallbackReason = string.IsNullOrWhiteSpace(analysis.FallbackReason)
+                ? "AI fallback mode was used."
+                : analysis.FallbackReason.Trim();
+            builder.AppendLine($"Fallback note: {fallbackReason}");
+        }
+
+        if (analysis.SuggestedAlternatives.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Rejected alternatives:");
+            foreach (var alternative in analysis.SuggestedAlternatives)
+            {
+                builder.AppendLine($"- {alternative}");
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Formats consequences markdown from recommendation risks.
+    /// </summary>
+    /// <param name="analysis">Recommendation analysis payload.</param>
+    /// <returns>Markdown section content.</returns>
+    private static string BuildConsequencesContent(AdrEvaluationRecommendation analysis)
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.AppendLine("- Positive:");
+        builder.AppendLine($"  - Expected alignment with selected option '{analysis.PreferredOption}'.");
+        builder.AppendLine("- Negative:");
+        builder.AppendLine("  - Additional implementation and verification effort is required.");
+        builder.AppendLine("- Risks and mitigations:");
+        if (analysis.Risks.Count is 0)
+        {
+            builder.AppendLine("  - Risk: No explicit AI risks identified.");
+            builder.AppendLine("    Mitigation: Perform manual architecture review before accepting.");
+        }
+        else
+        {
+            foreach (var risk in analysis.Risks)
+            {
+                builder.AppendLine($"  - Risk: {risk}");
+                builder.AppendLine("    Mitigation: Validate this risk in architecture review and capture owner/date.");
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Inserts or replaces markdown section content.
+    /// </summary>
+    /// <param name="markdown">Current markdown body.</param>
+    /// <param name="heading">Section heading text.</param>
+    /// <param name="content">Replacement content.</param>
+    /// <returns>Updated markdown body.</returns>
+    private static string UpsertSection(string markdown, string heading, string content)
+    {
+        var normalized = NormalizeMarkdown(markdown);
+        var lines = normalized.Split('\n');
+        var headingLine = heading.Trim();
+        var startIndex = Array.FindIndex(
+            lines,
+            line => string.Equals(line.Trim(), headingLine, StringComparison.OrdinalIgnoreCase));
+
+        if (startIndex < 0)
+        {
+            return AppendSection(normalized, headingLine, content);
+        }
+
+        var endIndex = lines.Length;
+        for (var index = startIndex + 1; index < lines.Length; index++)
+        {
+            var candidate = lines[index].Trim();
+            if (candidate.StartsWith("## ", StringComparison.Ordinal)
+                || candidate.StartsWith("### ", StringComparison.Ordinal))
+            {
+                endIndex = index;
+                break;
+            }
+        }
+
+        var builder = new System.Text.StringBuilder();
+        for (var index = 0; index <= startIndex; index++)
+        {
+            builder.AppendLine(lines[index]);
+        }
+
+        builder.AppendLine();
+        builder.AppendLine(content.Trim());
+        builder.AppendLine();
+        for (var index = endIndex; index < lines.Length; index++)
+        {
+            builder.AppendLine(lines[index]);
+        }
+
+        return NormalizeMarkdown(builder.ToString());
+    }
+
+    /// <summary>
+    /// Appends a markdown section at the end of body content.
+    /// </summary>
+    /// <param name="markdown">Current markdown body.</param>
+    /// <param name="heading">Section heading text.</param>
+    /// <param name="content">Section content.</param>
+    /// <returns>Updated markdown body.</returns>
+    private static string AppendSection(string markdown, string heading, string content)
+    {
+        var builder = new System.Text.StringBuilder(markdown.Trim());
+        if (builder.Length > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine();
+        }
+
+        builder.AppendLine(heading);
+        builder.AppendLine();
+        builder.AppendLine(content.Trim());
+        return NormalizeMarkdown(builder.ToString());
+    }
+
+    /// <summary>
+    /// Normalizes markdown line endings and trims outer whitespace.
+    /// </summary>
+    /// <param name="markdown">Markdown content.</param>
+    /// <returns>Normalized markdown body.</returns>
+    private static string NormalizeMarkdown(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+        {
+            return string.Empty;
+        }
+
+        return markdown
+            .TrimStart('\uFEFF')
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Trim();
     }
 
     /// <summary>

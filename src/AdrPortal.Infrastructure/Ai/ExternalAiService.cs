@@ -182,10 +182,13 @@ public sealed class ExternalAiService(
                 preferredOption (string),
                 recommendationSummary (string),
                 decisionFit (string),
-                options (array of { optionName, summary, score, rationale, tradeOffs[] }),
+                options (array of { optionName, summary, score, rationale, pros[], cons[], tradeOffs[] }),
                 risks (string[]),
                 suggestedAlternatives (string[]),
                 groundingAdrNumbers (int[]).
+                Provide at least three distinct options whenever possible.
+                Each option must include at least one pro and one con.
+                recommendationSummary must clearly explain why preferredOption is chosen.
                 No markdown or prose outside JSON.
                 """),
             new ChatMessage(
@@ -269,9 +272,20 @@ public sealed class ExternalAiService(
         var suggestedAlternatives = ParseStringArray(root, "suggestedAlternatives");
         var grounding = ParseIntArray(root, "groundingAdrNumbers");
 
-        if (options.Count is 0)
+        if (options.Count < 3)
         {
-            throw new InvalidOperationException("AI response options array must contain at least one option.");
+            throw new InvalidOperationException("AI response options array must contain at least three options.");
+        }
+
+        if (!options.Any(
+                option => string.Equals(option.OptionName, preferredOption, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("AI response preferred option must match one of the option names.");
+        }
+
+        if (string.IsNullOrWhiteSpace(recommendationSummary) || recommendationSummary.Length < 20)
+        {
+            throw new InvalidOperationException("AI response recommendation summary must provide clear rationale.");
         }
 
         return new AdrEvaluationRecommendation
@@ -393,6 +407,8 @@ public sealed class ExternalAiService(
             var summary = RequiredString(option, "summary");
             var score = ParseScore(option, "score");
             var rationale = RequiredString(option, "rationale");
+            var pros = ParseNonEmptyStringArray(option, "pros");
+            var cons = ParseNonEmptyStringArray(option, "cons");
             var tradeOffs = ParseStringArray(option, "tradeOffs");
 
             options.Add(
@@ -402,6 +418,8 @@ public sealed class ExternalAiService(
                     Summary = summary,
                     Score = score,
                     Rationale = rationale,
+                    Pros = pros,
+                    Cons = cons,
                     TradeOffs = tradeOffs
                 });
         }
@@ -423,6 +441,17 @@ public sealed class ExternalAiService(
         }
 
         return Math.Clamp(value, 0.0, 1.0);
+    }
+
+    private static IReadOnlyList<string> ParseNonEmptyStringArray(JsonElement root, string propertyName)
+    {
+        var values = ParseStringArray(root, propertyName);
+        if (values.Count is 0)
+        {
+            throw new InvalidOperationException($"AI response property '{propertyName}' must contain at least one value.");
+        }
+
+        return values;
     }
 
     private static IReadOnlyList<AffectedAdrResultItem> ParseAffectedItems(JsonElement root)
