@@ -16,13 +16,7 @@ internal static class RepositoryPathSecurity
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        if (string.IsNullOrWhiteSpace(repository.InboxFolder))
-        {
-            throw new InvalidOperationException(
-                $"Repository '{repository.DisplayName}' does not have an inbox folder configured.");
-        }
-
-        var inboxFolder = repository.InboxFolder.Trim();
+        var inboxFolder = ManagedRepositoryDefaults.DefaultInboxFolder;
         var candidatePath = Path.IsPathRooted(inboxFolder)
             ? inboxFolder
             : Path.Combine(repository.RootPath, inboxFolder);

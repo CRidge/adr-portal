@@ -25,10 +25,7 @@ public class RepositoryEditorModelValidationTests
         var model = new RepositoryEditorModel
         {
             GitRemoteUrl = "https://github.com/contoso/adr-portal.git",
-            DisplayName = string.Empty,
-            RootPath = string.Empty,
-            AdrFolder = string.Empty,
-            InboxFolder = null
+            DisplayName = string.Empty
         };
 
         var results = ValidateModel(model);

@@ -24,10 +24,20 @@
     gap: 0.35rem;
 }
 
+.repo-settings__field--readonly .repo-settings__input {
+    background-color: var(--app-surface-muted);
+}
+
 .repo-settings__label {
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--app-text);
+}
+
+.repo-settings__hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--app-muted);
 }
 
 .repo-settings__input {

@@ -26,33 +26,32 @@
             <legend class="repo-settings__legend">@GetEditorHeading()</legend>
 
             <div class="repo-settings__field">
-                <label class="repo-settings__label" for="repo-name">Display name</label>
+                <label class="repo-settings__label" for="repo-name">Display name override (optional)</label>
                 <InputText id="repo-name" class="repo-settings__input" @bind-Value="editorModel.DisplayName" />
+                <p class="repo-settings__hint">Leave empty to use the owner/repository name from the Git remote URL.</p>
                 <ValidationMessage For="() => editorModel.DisplayName" />
-            </div>
-
-            <div class="repo-settings__field">
-                <label class="repo-settings__label" for="repo-root">Root path</label>
-                <InputText id="repo-root" class="repo-settings__input" @bind-Value="editorModel.RootPath" />
-                <ValidationMessage For="() => editorModel.RootPath" />
-            </div>
-
-            <div class="repo-settings__field">
-                <label class="repo-settings__label" for="repo-adr-folder">ADR folder</label>
-                <InputText id="repo-adr-folder" class="repo-settings__input" @bind-Value="editorModel.AdrFolder" />
-                <ValidationMessage For="() => editorModel.AdrFolder" />
-            </div>
-
-            <div class="repo-settings__field">
-                <label class="repo-settings__label" for="repo-inbox">Inbox folder (optional)</label>
-                <InputText id="repo-inbox" class="repo-settings__input" @bind-Value="editorModel.InboxFolder" />
-                <ValidationMessage For="() => editorModel.InboxFolder" />
             </div>
 
             <div class="repo-settings__field">
                 <label class="repo-settings__label" for="repo-remote">Git remote URL</label>
                 <InputText id="repo-remote" class="repo-settings__input" @bind-Value="editorModel.GitRemoteUrl" />
+                <p class="repo-settings__hint">The app clones into its managed checkout location and keeps the repository up to date automatically.</p>
                 <ValidationMessage For="() => editorModel.GitRemoteUrl" />
+            </div>
+
+            <div class="repo-settings__field repo-settings__field--readonly">
+                <label class="repo-settings__label" for="repo-root-preview">Managed checkout path</label>
+                <InputText id="repo-root-preview" class="repo-settings__input" Value="@GetManagedCheckoutPreview()" readonly />
+            </div>
+
+            <div class="repo-settings__field repo-settings__field--readonly">
+                <label class="repo-settings__label" for="repo-adr-preview">ADR folder</label>
+                <InputText id="repo-adr-preview" class="repo-settings__input" Value="@ManagedRepositoryDefaults.DefaultAdrFolder" readonly />
+            </div>
+
+            <div class="repo-settings__field repo-settings__field--readonly">
+                <label class="repo-settings__label" for="repo-inbox-preview">Inbox folder</label>
+                <InputText id="repo-inbox-preview" class="repo-settings__input" Value="@ManagedRepositoryDefaults.DefaultInboxFolder" readonly />
             </div>
 
             <label class="repo-settings__checkbox">
@@ -153,13 +152,14 @@
         {
             if (editingRepositoryId is int repositoryId)
             {
+                var inferredDefaults = ManagedRepositoryDefaults.InferFromGitRemoteUrl(ResolveRequiredInput(editorModel.GitRemoteUrl));
                 var updatedRepository = new ManagedRepository
                 {
                     Id = repositoryId,
-                    DisplayName = ResolveRequiredInput(editorModel.DisplayName),
-                    RootPath = ResolveRequiredInput(editorModel.RootPath),
-                    AdrFolder = ResolveRequiredInput(editorModel.AdrFolder),
-                    InboxFolder = NormalizeOptional(editorModel.InboxFolder),
+                    DisplayName = ResolveDisplayNameInput(editorModel.DisplayName),
+                    RootPath = inferredDefaults.RootPath,
+                    AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder,
+                    InboxFolder = ManagedRepositoryDefaults.DefaultInboxFolder,
                     GitRemoteUrl = ResolveRequiredInput(editorModel.GitRemoteUrl),
                     IsActive = editorModel.IsActive,
                     CreatedAtUtc = DateTime.UtcNow,
@@ -184,9 +184,6 @@
                 var createdRepository = ManagedRepositoryDefaults.CreateForAdd(
                     gitRemoteUrl: ResolveRequiredInput(editorModel.GitRemoteUrl),
                     displayNameOverride: editorModel.DisplayName,
-                    rootPathOverride: editorModel.RootPath,
-                    adrFolderOverride: editorModel.AdrFolder,
-                    inboxFolderOverride: editorModel.InboxFolder,
                     isActive: editorModel.IsActive);
 
                 var result = await ManagedRepositoryStore.AddAsync(createdRepository, CancellationToken.None);
@@ -237,10 +234,7 @@
         }
 
         editingRepositoryId = repository.Id;
-        editorModel.DisplayName = repository.DisplayName;
-        editorModel.RootPath = repository.RootPath;
-        editorModel.AdrFolder = repository.AdrFolder;
-        editorModel.InboxFolder = repository.InboxFolder;
+        editorModel.DisplayName = ResolveDisplayNameOverride(repository);
         editorModel.GitRemoteUrl = repository.GitRemoteUrl ?? string.Empty;
         editorModel.IsActive = repository.IsActive;
         editContext = new EditContext(editorModel);
@@ -310,9 +304,6 @@
     private void InitializeEditor()
     {
         editorModel.DisplayName = string.Empty;
-        editorModel.RootPath = string.Empty;
-        editorModel.AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder;
-        editorModel.InboxFolder = null;
         editorModel.GitRemoteUrl = string.Empty;
         editorModel.IsActive = true;
 
@@ -358,21 +349,6 @@
     }
 
     /// <summary>
-    /// Normalizes optional string inputs to null when empty.
-    /// </summary>
-    /// <param name="value">Input value.</param>
-    /// <returns>Trimmed value or <see langword="null"/>.</returns>
-    private static string? NormalizeOptional(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return value.Trim();
-    }
-
-    /// <summary>
     /// Normalizes required string inputs.
     /// </summary>
     /// <param name="value">Input value.</param>
@@ -380,5 +356,69 @@
     private static string ResolveRequiredInput(string? value)
     {
         return value?.Trim() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Resolves display name override values for persistence.
+    /// </summary>
+    /// <param name="value">Input value.</param>
+    /// <returns>Trimmed display name override or inferred value when empty.</returns>
+    private string ResolveDisplayNameInput(string? value)
+    {
+        var trimmed = value?.Trim();
+        if (!string.IsNullOrWhiteSpace(trimmed))
+        {
+            return trimmed;
+        }
+
+        var inferred = ManagedRepositoryDefaults.InferFromGitRemoteUrl(ResolveRequiredInput(editorModel.GitRemoteUrl));
+        return inferred.DisplayName;
+    }
+
+    /// <summary>
+    /// Resolves display name override text from a persisted repository value.
+    /// </summary>
+    /// <param name="repository">Persisted repository.</param>
+    /// <returns>Display override value when it differs from inferred defaults; otherwise empty.</returns>
+    private static string ResolveDisplayNameOverride(ManagedRepository repository)
+    {
+        if (string.IsNullOrWhiteSpace(repository.GitRemoteUrl))
+        {
+            return repository.DisplayName;
+        }
+
+        try
+        {
+            var inferredDisplayName = ManagedRepositoryDefaults.InferFromGitRemoteUrl(repository.GitRemoteUrl).DisplayName;
+            return string.Equals(repository.DisplayName, inferredDisplayName, StringComparison.Ordinal)
+                ? string.Empty
+                : repository.DisplayName;
+        }
+        catch (ArgumentException)
+        {
+            return repository.DisplayName;
+        }
+    }
+
+    /// <summary>
+    /// Gets the managed checkout path preview from the current Git remote URL input.
+    /// </summary>
+    /// <returns>Managed checkout preview path or placeholder text.</returns>
+    private string GetManagedCheckoutPreview()
+    {
+        var gitRemoteUrl = ResolveRequiredInput(editorModel.GitRemoteUrl);
+        if (string.IsNullOrWhiteSpace(gitRemoteUrl))
+        {
+            return "(derived after entering a Git remote URL)";
+        }
+
+        try
+        {
+            return ManagedRepositoryDefaults.InferFromGitRemoteUrl(gitRemoteUrl).RootPath;
+        }
+        catch (ArgumentException)
+        {
+            return "(invalid Git remote URL)";
+        }
     }
 }

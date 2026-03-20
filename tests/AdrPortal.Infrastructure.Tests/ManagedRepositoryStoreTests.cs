@@ -61,7 +61,7 @@ public class ManagedRepositoryStoreTests
         await Assert.That(saved.DisplayName).IsEqualTo("contoso/adr-portal");
         await Assert.That(saved.RootPath).IsEqualTo(Path.Combine(ManagedRepositoryDefaults.DefaultRepositoriesRootPath, "contoso", "adr-portal"));
         await Assert.That(saved.AdrFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultAdrFolder);
-        await Assert.That(saved.InboxFolder).IsNull();
+        await Assert.That(saved.InboxFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultInboxFolder);
         await Assert.That(all.Count).IsEqualTo(1);
         await Assert.That(all[0].DisplayName).IsEqualTo("contoso/adr-portal");
     }
@@ -130,8 +130,8 @@ public class ManagedRepositoryStoreTests
                 Id = id,
                 DisplayName = "Repo After",
                 RootPath = @"C:\repos\after",
-                AdrFolder = "architecture/adr",
-                InboxFolder = @"C:\repos\after\inbox",
+                AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder,
+                InboxFolder = ManagedRepositoryDefaults.DefaultInboxFolder,
                 GitRemoteUrl = "https://example.test/after.git",
                 IsActive = false
             },
@@ -140,7 +140,8 @@ public class ManagedRepositoryStoreTests
         await Assert.That(updated).IsNotNull();
         await Assert.That(updated!.DisplayName).IsEqualTo("Repo After");
         await Assert.That(updated.RootPath).IsEqualTo(@"C:\repos\after");
-        await Assert.That(updated.AdrFolder).IsEqualTo("architecture/adr");
+        await Assert.That(updated.AdrFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultAdrFolder);
+        await Assert.That(updated.InboxFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultInboxFolder);
         await Assert.That(updated.IsActive).IsFalse();
         await Assert.That(updated.UpdatedAtUtc > updated.CreatedAtUtc).IsTrue();
     }

@@ -44,7 +44,7 @@ public sealed class InboxWatcherCoordinator(
         var managedRepositoryStore = scope.ServiceProvider.GetRequiredService<IManagedRepositoryStore>();
         var repositories = await managedRepositoryStore.GetAllAsync(ct);
         var desiredRegistrations = new Dictionary<int, string>();
-        foreach (var repository in repositories.Where(item => item.IsActive && !string.IsNullOrWhiteSpace(item.InboxFolder)))
+        foreach (var repository in repositories.Where(item => item.IsActive))
         {
             ct.ThrowIfCancellationRequested();
             try
