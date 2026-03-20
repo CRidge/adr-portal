@@ -3,7 +3,7 @@ namespace AdrPortal.Web.Tests;
 public class HomePageContentTests
 {
     [Test]
-    public async Task HomePage_IncludesPhaseEightSignals()
+    public async Task HomePage_IncludesPhaseThirteenSignals()
     {
         var repositoryRoot = ResolveRepositoryRoot();
         var homePagePath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "Home.razor");
@@ -11,10 +11,11 @@ public class HomePageContentTests
 
         var homeMarkup = await File.ReadAllTextAsync(normalizedPath);
 
-        await Assert.That(homeMarkup.Contains("Phase 9", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(homeMarkup.Contains("AI codebase bootstrap", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Phase 13", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Source-to-target ADR comparison", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(homeMarkup.Contains("/compare", StringComparison.Ordinal)).IsTrue();
         await Assert.That(homeMarkup.Contains("/global", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(homeMarkup.Contains("Bootstrap ADRs with AI", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("select import rows", StringComparison.OrdinalIgnoreCase)).IsTrue();
     }
 
     [Test]
@@ -53,11 +54,29 @@ public class HomePageContentTests
         await Assert.That(markup.Contains("Global library", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__nav-badge", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/global", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("/compare", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/settings/repos", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__repo-list", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/repos/{repository.Id}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__repo-indicator", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(markup.Contains("Phase 9 AI codebase bootstrap + global ADR sync workflows", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Phase 13 source-to-target ADR comparison + import workflows", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task RepositoryComparePage_ContainsSourceTargetSelectionAndImportFlow()
+    {
+        var repositoryRoot = ResolveRepositoryRoot();
+        var comparePagePath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "RepositoryCompare.razor");
+        var compareMarkup = await File.ReadAllTextAsync(comparePagePath);
+
+        await Assert.That(compareMarkup.Contains("@page \"/compare\"", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(compareMarkup.Contains("Source repository", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(compareMarkup.Contains("Target repository", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(compareMarkup.Contains("Compare repositories", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(compareMarkup.Contains("Ranked source ADR list", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(compareMarkup.Contains("Import selected ADRs as proposed", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(compareMarkup.Contains("global-id", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(compareMarkup.Contains("global-version", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]

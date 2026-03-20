@@ -19,6 +19,7 @@ builder.Services.AddScoped<AdrDocumentService>();
 builder.Services.AddScoped<AdrAiAssistantService>();
 builder.Services.AddScoped<GlobalLibraryService>();
 builder.Services.AddScoped<AiBootstrapService>();
+builder.Services.AddScoped<RepositoryComparisonService>();
 builder.Services.AddScoped<IInboxImportService, InboxImportService>();
 builder.Services.AddScoped<RepositoryInboxUploadService>();
 builder.Services.AddSingleton<AdrListViewService>();
