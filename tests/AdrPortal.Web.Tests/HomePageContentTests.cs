@@ -29,6 +29,16 @@ public class HomePageContentTests
     }
 
     [Test]
+    public async Task AppShell_LoadsThemeBootstrapScript()
+    {
+        var repositoryRoot = ResolveRepositoryRoot();
+        var appComponentPath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "App.razor");
+        var appComponent = await File.ReadAllTextAsync(appComponentPath);
+
+        await Assert.That(appComponent.Contains("theme.js", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
     public async Task SettingsReposPage_ContainsRepositoryManagementControls()
     {
         var repositoryRoot = ResolveRepositoryRoot();
@@ -59,6 +69,9 @@ public class HomePageContentTests
         await Assert.That(markup.Contains("shell__repo-list", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/repos/{repository.Id}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__repo-indicator", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("shell__theme-toggle", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("aria-pressed=\"@IsDarkTheme\"", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("ToggleThemeAsync", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("Phase 13 source-to-target ADR comparison + import workflows", StringComparison.Ordinal)).IsTrue();
     }
 

@@ -1,6 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @implements IDisposable
 @inject RepositoryCatalogState RepositoryCatalogState
+@inject IJSRuntime JSRuntime
 
 <div class="shell">
     <header class="shell__header">
@@ -8,7 +9,18 @@
             <span class="brand__dot" aria-hidden="true"></span>
             <span class="brand__name">ADR Portal</span>
         </div>
-        <span class="shell__status">Phase 13 source-to-target ADR comparison + import workflows</span>
+        <div class="shell__header-right">
+            <span class="shell__status">Phase 13 source-to-target ADR comparison + import workflows</span>
+            <button class="shell__theme-toggle"
+                    type="button"
+                    aria-label="@ThemeToggleAriaLabel"
+                    aria-pressed="@IsDarkTheme"
+                    title="@ThemeToggleAriaLabel"
+                    @onclick="ToggleThemeAsync">
+                <span class="shell__theme-toggle-icon" aria-hidden="true">@ThemeToggleIcon</span>
+                <span class="shell__theme-toggle-text">@ThemeToggleText</span>
+            </button>
+        </div>
     </header>
 
     <div class="shell__body">
@@ -74,6 +86,20 @@
 
 @code
 {
+    private const string LightThemeName = "light";
+    private const string DarkThemeName = "dark";
+    private string _theme = LightThemeName;
+
+    private bool IsDarkTheme => string.Equals(_theme, DarkThemeName, StringComparison.Ordinal);
+
+    private string ThemeToggleAriaLabel => IsDarkTheme
+        ? "Dark mode enabled. Activate to switch to light mode."
+        : "Light mode enabled. Activate to switch to dark mode.";
+
+    private string ThemeToggleIcon => IsDarkTheme ? "☾" : "☀";
+
+    private string ThemeToggleText => IsDarkTheme ? "Dark" : "Light";
+
     /// <summary>
     /// Subscribes to repository list updates and loads initial data.
     /// </summary>
@@ -85,11 +111,36 @@
     }
 
     /// <summary>
+    /// Synchronizes the toggle state with the active theme after the first interactive render.
+    /// </summary>
+    /// <param name="firstRender">Whether the component is rendering for the first time.</param>
+    /// <returns>An asynchronous operation.</returns>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _theme = await JSRuntime.InvokeAsync<string>("adrTheme.resolveInitialTheme");
+        StateHasChanged();
+    }
+
+    /// <summary>
     /// Releases event subscriptions owned by the layout.
     /// </summary>
     public void Dispose()
     {
         RepositoryCatalogState.Changed -= HandleRepositoryCatalogChanged;
+    }
+
+    /// <summary>
+    /// Switches between light and dark themes and persists the explicit user preference.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task ToggleThemeAsync()
+    {
+        _theme = await JSRuntime.InvokeAsync<string>("adrTheme.toggleTheme", _theme);
     }
 
     /// <summary>

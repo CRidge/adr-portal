@@ -14,6 +14,14 @@
     background-color: var(--app-surface);
 }
 
+.shell__header-right {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
 .brand {
     display: inline-flex;
     align-items: center;
@@ -39,6 +47,39 @@
     color: var(--app-muted);
 }
 
+.shell__theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid var(--app-border-strong);
+    border-radius: 999px;
+    background-color: var(--app-surface-muted);
+    color: var(--app-text);
+    padding: 0.35rem 0.7rem;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.shell__theme-toggle:hover {
+    background-color: var(--app-surface);
+}
+
+.shell__theme-toggle:focus-visible {
+    outline: 2px solid var(--app-focus-outline);
+    outline-offset: 2px;
+}
+
+.shell__theme-toggle-icon {
+    font-size: 0.95rem;
+}
+
+.shell__theme-toggle-text {
+    letter-spacing: 0.02em;
+}
+
 .shell__body {
     flex: 1;
     display: grid;
@@ -52,7 +93,7 @@
     gap: 1rem;
     padding: 1.25rem;
     border-right: 1px solid var(--app-border);
-    background-color: #111827;
+    background-color: var(--app-sidebar-bg);
 }
 
 .shell__nav {
@@ -66,7 +107,7 @@
     padding: 0.65rem 0.75rem;
     border-radius: 0.6rem;
     border: 1px solid transparent;
-    color: #d1d5db;
+    color: var(--app-sidebar-text);
     text-decoration: none;
     transition: border-color 0.2s ease, background-color 0.2s ease;
     font-size: 0.92rem;
@@ -81,8 +122,8 @@
 }
 
 .shell__nav-badge {
-    background-color: #374151;
-    color: #d1d5db;
+    background-color: var(--app-sidebar-badge-bg);
+    color: var(--app-sidebar-badge-text);
     font-size: 0.73rem;
     font-weight: 700;
     padding: 2px 7px;
@@ -90,21 +131,21 @@
 }
 
 .shell__nav-link:hover {
-    border-color: #334155;
-    background-color: #1f2937;
+    border-color: var(--app-sidebar-hover-border);
+    background-color: var(--app-sidebar-surface-hover);
 }
 
 .shell__nav-link.active {
-    border-color: #334155;
-    background-color: #1f2937;
-    color: #ffffff;
+    border-color: var(--app-sidebar-hover-border);
+    background-color: var(--app-sidebar-surface-hover);
+    color: var(--app-sidebar-text-strong);
 }
 
 .shell__hint {
     margin: 0;
     font-size: 0.9rem;
     line-height: 1.45;
-    color: #9ca3af;
+    color: var(--app-sidebar-muted);
 }
 
 .shell__repositories {
@@ -118,7 +159,7 @@
     font-size: 0.73rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #9ca3af;
+    color: var(--app-sidebar-muted);
     font-weight: 600;
 }
 
@@ -136,22 +177,22 @@
     flex-direction: column;
     gap: 0.2rem;
     padding: 0.65rem 0.75rem;
-    border: 1px solid #374151;
+    border: 1px solid var(--app-sidebar-border);
     border-radius: 0.65rem;
-    background-color: #1f2937;
+    background-color: var(--app-sidebar-surface);
     text-decoration: none;
 }
 
 .shell__repo-name {
     margin: 0;
     font-weight: 600;
-    color: #f3f4f6;
+    color: var(--app-sidebar-text-strong);
 }
 
 .shell__repo-meta {
     margin: 0;
     font-size: 0.82rem;
-    color: #9ca3af;
+    color: var(--app-sidebar-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -165,19 +206,19 @@
 }
 
 .shell__repo-item.active {
-    border-color: #60a5fa;
-    background-color: #1e293b;
+    border-color: var(--app-sidebar-accent);
+    background-color: var(--app-sidebar-surface-hover);
 }
 
 .shell__repo-item:hover {
-    border-color: #475569;
+    border-color: var(--app-sidebar-hover-border);
 }
 
 .shell__repo-indicator {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    color: #bfdbfe;
+    color: var(--app-sidebar-accent-soft);
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -188,17 +229,17 @@
     width: 0.45rem;
     height: 0.45rem;
     border-radius: 999px;
-    background-color: #60a5fa;
+    background-color: var(--app-sidebar-accent);
 }
 
 .shell__repo-manage {
     text-decoration: none;
-    color: #93c5fd;
+    color: var(--app-sidebar-manage-text);
     font-size: 0.79rem;
     padding: 0.5rem 0.65rem;
     border-radius: 0.6rem;
-    border: 1px dashed #3b82f6;
-    background-color: #1f2937;
+    border: 1px dashed var(--app-sidebar-manage-border);
+    background-color: var(--app-sidebar-manage-bg);
 }
 
 .shell__content {
@@ -233,6 +274,15 @@
 }
 
 @media (max-width: 960px) {
+    .shell__header {
+        flex-wrap: wrap;
+    }
+
+    .shell__header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
     .shell__body {
         grid-template-columns: 1fr;
     }
