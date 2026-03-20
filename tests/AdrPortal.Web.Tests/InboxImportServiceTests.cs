@@ -15,7 +15,7 @@ public class InboxImportServiceTests
         var root = CreateTemporaryDirectory();
         try
         {
-            var repository = CreateRepository(id: 1, root, adrFolder: "docs/adr", inboxFolder: "docs/inbox");
+            var repository = CreateRepository(id: 1, root);
             var managedStore = new FakeManagedRepositoryStore(repository);
             var madrParser = new MadrParser();
             var madrWriter = new MadrWriter();
@@ -83,7 +83,7 @@ public class InboxImportServiceTests
         var root = CreateTemporaryDirectory();
         try
         {
-            var repository = CreateRepository(id: 2, root, adrFolder: "docs/adr", inboxFolder: "docs/inbox");
+            var repository = CreateRepository(id: 2, root);
             var managedStore = new FakeManagedRepositoryStore(repository);
             var madrParser = new MadrParser();
             var madrWriter = new MadrWriter();
@@ -121,7 +121,7 @@ public class InboxImportServiceTests
         var root = CreateTemporaryDirectory();
         try
         {
-            var repository = CreateRepository(id: 3, root, adrFolder: "docs/adr", inboxFolder: "docs/inbox");
+            var repository = CreateRepository(id: 3, root);
             var managedStore = new FakeManagedRepositoryStore(repository);
             var madrParser = new MadrParser();
             var madrWriter = new MadrWriter();
@@ -164,15 +164,15 @@ public class InboxImportServiceTests
         }
     }
 
-    private static ManagedRepository CreateRepository(int id, string rootPath, string adrFolder, string inboxFolder)
+    private static ManagedRepository CreateRepository(int id, string rootPath)
     {
         return new ManagedRepository
         {
             Id = id,
             DisplayName = $"repo-{id}",
             RootPath = rootPath,
-            AdrFolder = adrFolder,
-            InboxFolder = inboxFolder,
+            AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder,
+            InboxFolder = ManagedRepositoryDefaults.DefaultInboxFolder,
             IsActive = true
         };
     }

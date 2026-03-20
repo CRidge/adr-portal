@@ -19,8 +19,8 @@ public class InboxWatcherCoordinatorTests
                 Id = 41,
                 DisplayName = "repo-41",
                 RootPath = root,
-                AdrFolder = "docs/adr",
-                InboxFolder = "docs/inbox",
+                AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder,
+                InboxFolder = ManagedRepositoryDefaults.DefaultInboxFolder,
                 IsActive = true
             };
 
@@ -54,7 +54,7 @@ public class InboxWatcherCoordinatorTests
     }
 
     [Test]
-    public async Task RefreshWatchersAsync_DoesNotWatchWhenInboxIsMissing()
+    public async Task RefreshWatchersAsync_UsesDefaultInboxWhenInboxFieldIsMissing()
     {
         var root = CreateTemporaryDirectory();
         try
@@ -64,7 +64,7 @@ public class InboxWatcherCoordinatorTests
                 Id = 42,
                 DisplayName = "repo-42",
                 RootPath = root,
-                AdrFolder = "docs/adr",
+                AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder,
                 InboxFolder = null,
                 IsActive = true
             };
@@ -82,7 +82,10 @@ public class InboxWatcherCoordinatorTests
             await File.WriteAllTextAsync(outsideFilePath, "# Should Not Import");
             await Task.Delay(500);
 
-            await Assert.That(inboxImportService.Calls.Count).IsEqualTo(0);
+            var imported = await WaitForImportAsync(inboxImportService, timeoutMilliseconds: 4000);
+
+            await Assert.That(imported).IsTrue();
+            await Assert.That(inboxImportService.Calls.Count).IsEqualTo(1);
             coordinator.Dispose();
         }
         finally
@@ -199,8 +202,8 @@ public class InboxWatcherCoordinatorTests
                 Id = repositoryId,
                 DisplayName = "repo",
                 RootPath = @"C:\repos\repo",
-                AdrFolder = "docs/adr",
-                InboxFolder = "docs/inbox",
+                AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder,
+                InboxFolder = ManagedRepositoryDefaults.DefaultInboxFolder,
                 IsActive = true
             };
 

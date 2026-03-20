@@ -655,7 +655,7 @@ else
     /// <returns><see langword="true"/> when inbox configuration exists.</returns>
     private bool HasInboxConfigured()
     {
-        return !string.IsNullOrWhiteSpace(repository?.InboxFolder);
+        return repository is not null;
     }
 
     /// <summary>
@@ -664,11 +664,11 @@ else
     /// <returns>Inbox display path.</returns>
     private string GetInboxDisplayPath()
     {
-        if (repository is null || string.IsNullOrWhiteSpace(repository.InboxFolder))
+        if (repository is null)
         {
             return "disabled";
         }
 
-        return repository.InboxFolder.Replace('\\', '/');
+        return ManagedRepositoryDefaults.DefaultInboxFolder;
     }
 }

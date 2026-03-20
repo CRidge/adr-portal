@@ -71,8 +71,8 @@ public class RepositoryInboxUploadServiceTests
             Id = id,
             DisplayName = $"repo-{id}",
             RootPath = $@"C:\repos\repo-{id}",
-            AdrFolder = "docs/adr",
-            InboxFolder = "inbox",
+            AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder,
+            InboxFolder = ManagedRepositoryDefaults.DefaultInboxFolder,
             IsActive = true
         };
     }
