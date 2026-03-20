@@ -151,6 +151,12 @@ else
                         disabled="@(isSaving || isEvaluatingRecommendation || editContext is null)">
                     Insert manual evaluation scaffold
                 </button>
+                <button type="button"
+                        class="adr-editor__button adr-editor__button--manual"
+                        @onclick="InsertManualEvaluationScaffoldAsync"
+                        disabled="@(isSaving || isEvaluatingRecommendation || editContext is null)">
+                    Insert manual evaluation scaffold
+                </button>
             </div>
             <p class="adr-editor__hint">
                 Tip: run AI evaluation after writing options/pros/cons, then save and use ADR detail to manage lifecycle and global sync.
