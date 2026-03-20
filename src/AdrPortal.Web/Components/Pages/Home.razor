@@ -3,39 +3,98 @@
 
 <PageTitle>ADR Portal</PageTitle>
 
-<section class="panel">
-    <p class="eyebrow">Workspace overview</p>
-    <h1>Architecture decision workflow and template sync</h1>
-    <p class="lead">
-        Configure repositories under <a class="inline-link" href="/settings/repos">Settings → Repositories</a>,
-        author and review ADRs in each repository, and coordinate shared templates through the
-        <a class="inline-link" href="/global">Global ADR library</a>.
-    </p>
-    <dl class="status-grid">
-        <div>
-            <dt>Runtime</dt>
-            <dd>.NET 10</dd>
+@{
+    var managedRepositoryCount = RepositoryCatalogState.Repositories.Count;
+    var activeRepositoryCount = 0;
+    ManagedRepository? activeRepository = null;
+
+    foreach (var repository in RepositoryCatalogState.Repositories)
+    {
+        if (!repository.IsActive)
+        {
+            continue;
+        }
+
+        activeRepositoryCount++;
+        activeRepository ??= repository;
+    }
+
+    if (activeRepository is null && RepositoryCatalogState.Repositories.Count > 0)
+    {
+        activeRepository = RepositoryCatalogState.Repositories[0];
+    }
+}
+
+<section class="panel home-page">
+    <header class="home-page__header">
+        <div class="home-page__heading">
+            <p class="eyebrow">Workspace overview</p>
+            <h1>Architecture decision workflow and template sync</h1>
+            <p class="lead">
+                Configure repositories under <a class="inline-link" href="/settings/repos">Settings → Repositories</a>,
+                author and review ADRs in each repository, and coordinate shared templates through the
+                <a class="inline-link" href="/global">Global ADR library</a>.
+            </p>
         </div>
-        <div>
-            <dt>Orchestration</dt>
-            <dd>.NET Aspire</dd>
-        </div>
-        <div>
-            <dt>Persistence</dt>
-            <dd>EF Core + SQLite</dd>
-        </div>
-        <div>
-            <dt>Managed repositories</dt>
-            <dd>@RepositoryCatalogState.Repositories.Count</dd>
-        </div>
-        <div>
-            <dt>Pending global sync</dt>
-            <dd>@RepositoryCatalogState.DashboardPendingCount</dd>
-        </div>
-    </dl>
-    <p class="lead">
-        Suggested flow: draft or update an ADR, run in-editor AI evaluation to compare options,
-        then open <a class="inline-link" href="/compare">/compare</a> to import related ADRs across repositories.
-        Use <a class="inline-link" href="/global">/global</a> to review library proposals and apply template updates to instances.
-    </p>
+        <a class="home-page__action" href="/settings/repos">Manage repositories</a>
+    </header>
+
+    <section class="home-page__context" aria-label="Active repository context">
+        <strong>Active repository context</strong>
+        @if (activeRepository is null)
+        {
+            <span>No repositories configured yet.</span>
+        }
+        else
+        {
+            <span>@activeRepository.DisplayName</span>
+            <span>Path: @activeRepository.RootPath</span>
+            <span>ADR folder: /@activeRepository.AdrFolder.Replace('\\', '/')</span>
+        }
+        <span>Pending global sync: @RepositoryCatalogState.DashboardPendingCount</span>
+    </section>
+
+    <section class="home-page__stats" aria-label="Workspace summary cards">
+        <article class="home-stat home-stat--context">
+            <p class="home-stat__label">Repository context</p>
+            @if (activeRepository is null)
+            {
+                <p class="home-stat__value">No active repository</p>
+                <p class="home-stat__footnote">Add your first repository in settings to enable ADR workflows.</p>
+            }
+            else
+            {
+                <p class="home-stat__value">@activeRepository.DisplayName</p>
+                <p class="home-stat__footnote">Root: @activeRepository.RootPath</p>
+            }
+        </article>
+
+        <article class="home-stat">
+            <p class="home-stat__label">Managed repositories</p>
+            <p class="home-stat__value">@managedRepositoryCount</p>
+            <p class="home-stat__footnote">@activeRepositoryCount active</p>
+        </article>
+
+        <article class="home-stat">
+            <p class="home-stat__label">Pending global sync</p>
+            <p class="home-stat__value">@RepositoryCatalogState.DashboardPendingCount</p>
+            <p class="home-stat__footnote">Library updates awaiting triage or apply actions</p>
+        </article>
+
+        <article class="home-stat">
+            <p class="home-stat__label">Runtime</p>
+            <p class="home-stat__value">.NET 10</p>
+            <p class="home-stat__footnote">Aspire-orchestrated services</p>
+        </article>
+    </section>
+
+    <section class="home-page__workflow">
+        <h2>Suggested operating flow</h2>
+        <ol>
+            <li>Draft or update ADRs in a repository under <a class="inline-link" href="/settings/repos">repository settings</a>.</li>
+            <li>Run in-editor AI evaluation on the repository ADR editor to compare options.</li>
+            <li>Open <a class="inline-link" href="/compare">/compare</a> to import related ADRs across repositories.</li>
+            <li>Review and apply template proposals through <a class="inline-link" href="/global">/global</a>.</li>
+        </ol>
+    </section>
 </section>

@@ -18,13 +18,17 @@
 
 .global-adr-page__link {
     border: 1px solid var(--app-border);
-    border-radius: 0.6rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.5rem 0.75rem;
     color: var(--app-text);
     text-decoration: none;
     background-color: var(--app-surface-muted);
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     font-weight: 600;
+}
+
+.global-adr-page__link:hover {
+    background-color: #f3f4f6;
 }
 
 .global-adr-page__stats {
@@ -32,8 +36,9 @@
     flex-wrap: wrap;
     gap: 0.75rem 1.5rem;
     border: 1px solid var(--app-border);
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     background-color: #ffffff;
+    box-shadow: var(--app-shadow);
     padding: 0.75rem 0.9rem;
     font-size: 0.86rem;
 }
@@ -116,7 +121,7 @@
 .global-adr-versions details pre {
     margin: 0.5rem 0 0;
     border: 1px solid var(--app-border);
-    border-radius: 0.6rem;
+    border-radius: var(--app-radius-sm);
     background-color: #f8fafc;
     padding: 0.7rem;
     white-space: pre-wrap;
@@ -148,7 +153,7 @@
 }
 
 .global-adr-table th {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--app-muted);
@@ -174,7 +179,7 @@
 
 .global-adr-button {
     border: 1px solid var(--app-border);
-    border-radius: 0.55rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.4rem 0.65rem;
     font-size: 0.78rem;
     font-weight: 700;

@@ -7,7 +7,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 0.9rem;
 }
 
 .adr-page__actions {
@@ -18,24 +18,29 @@
 
 .adr-page__settings-link {
     border: 1px solid var(--app-border);
-    border-radius: 0.6rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.5rem 0.75rem;
     color: var(--app-text);
     text-decoration: none;
     background-color: var(--app-surface-muted);
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     font-weight: 600;
+}
+
+.adr-page__settings-link:hover {
+    background-color: #f3f4f6;
 }
 
 .adr-page__context {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
+    gap: 0.6rem 1rem;
     border: 1px solid var(--app-border);
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     background-color: #ffffff;
+    box-shadow: var(--app-shadow);
     padding: 0.75rem 0.9rem;
-    font-size: 0.86rem;
+    font-size: 0.85rem;
 }
 
 .adr-page__context span {
@@ -43,7 +48,7 @@
 }
 
 .adr-page__context strong {
-    color: var(--app-text);
+    color: var(--app-heading);
 }
 
 .adr-panel {
@@ -81,16 +86,16 @@
 }
 
 .adr-toolbar__search {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--app-muted);
 }
 
 .adr-toolbar__input {
     border: 1px solid var(--app-border);
-    border-radius: 0.6rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.55rem 0.65rem;
     font: inherit;
     color: var(--app-text);
@@ -114,7 +119,7 @@
 }
 
 .adr-filter-row strong {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     color: var(--app-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -128,7 +133,7 @@
 
 .chip {
     border-radius: 999px;
-    padding: 0.28rem 0.64rem;
+    padding: 0.26rem 0.64rem;
     border: 1px solid #d1d5db;
     background-color: #f9fafb;
     font-size: 0.75rem;
@@ -203,7 +208,7 @@
 
 .adr-bootstrap__lead {
     color: var(--app-muted);
-    font-size: 0.9rem;
+    font-size: 0.88rem;
 }
 
 .adr-bootstrap__summary {
@@ -211,10 +216,10 @@
     flex-wrap: wrap;
     gap: 0.6rem 1rem;
     border: 1px solid var(--app-border);
-    border-radius: 0.65rem;
+    border-radius: var(--app-radius-sm);
     background-color: #fbfdff;
     padding: 0.65rem 0.75rem;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
 }
 
 .adr-bootstrap__cards {
@@ -225,8 +230,9 @@
 
 .adr-bootstrap-card {
     border: 1px solid var(--app-border);
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     background-color: #ffffff;
+    box-shadow: var(--app-shadow);
     padding: 0.75rem;
     display: flex;
     flex-direction: column;
@@ -247,7 +253,7 @@
 
 .adr-bootstrap-card__header h4 {
     margin: 0;
-    font-size: 0.96rem;
+    font-size: 0.95rem;
     color: var(--app-heading);
 }
 
@@ -294,8 +300,8 @@
 
 .adr-bootstrap-card__select {
     border: 1px solid #bfdbfe;
-    border-radius: 0.5rem;
-    padding: 0.25rem 0.55rem;
+    border-radius: var(--app-radius-sm);
+    padding: 0.24rem 0.55rem;
     font-size: 0.76rem;
     font-weight: 700;
     background-color: #dbeafe;
@@ -312,7 +318,7 @@
 
 .adr-bootstrap__primary,
 .adr-bootstrap__secondary {
-    border-radius: 0.6rem;
+    border-radius: var(--app-radius-sm);
     font-size: 0.82rem;
     font-weight: 700;
     padding: 0.45rem 0.75rem;
@@ -347,8 +353,8 @@
 }
 
 .adr-row {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.75rem;
     border-bottom: 1px solid var(--app-border);
@@ -363,7 +369,7 @@
 
 .adr-row__edit {
     border: 1px solid var(--app-border);
-    border-radius: 0.55rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.2rem 0.5rem;
     text-decoration: none;
     font-size: 0.78rem;
@@ -404,7 +410,7 @@
     align-items: center;
     border-radius: 999px;
     padding: 0.2rem 0.55rem;
-    font-size: 0.76rem;
+    font-size: 0.75rem;
     font-weight: 700;
     border: 1px solid transparent;
     white-space: nowrap;
@@ -443,11 +449,11 @@
 .repo-status {
     margin: 0;
     border: 1px solid #bfdbfe;
-    border-radius: 0.6rem;
+    border-radius: var(--app-radius-sm);
     background-color: #eff6ff;
     color: #1e3a8a;
     padding: 0.6rem 0.75rem;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
 }
 
 .repo-status--error {
@@ -480,7 +486,7 @@
 .adr-upload-zone__drop {
     position: relative;
     border: 1px dashed #93c5fd;
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     background-color: #eff6ff;
     padding: 0.95rem;
     color: #1d4ed8;
@@ -495,7 +501,7 @@
 }
 
 .adr-upload-zone__drop-label {
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     font-weight: 700;
 }
 
@@ -520,7 +526,7 @@
 
 @media (max-width: 640px) {
     .adr-row {
-        flex-direction: column;
+        grid-template-columns: 1fr;
         align-items: flex-start;
     }
 

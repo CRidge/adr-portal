@@ -4,12 +4,13 @@
 
 .repo-settings__fieldset {
     border: 1px solid var(--app-border);
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     padding: 1rem;
     margin: 0;
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
+    background-color: #fcfdff;
 }
 
 .repo-settings__legend {
@@ -24,37 +25,33 @@
     gap: 0.35rem;
 }
 
-.repo-settings__field--readonly .repo-settings__input {
-    background-color: var(--app-surface-muted);
-}
-
 .repo-settings__readonly-value {
     margin: 0;
     border: 1px solid var(--app-border);
-    border-radius: 0.55rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.55rem 0.65rem;
     color: var(--app-text);
     background-color: var(--app-surface-muted);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     overflow-wrap: anywhere;
 }
 
 .repo-settings__label {
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 600;
     color: var(--app-text);
 }
 
 .repo-settings__hint {
     margin: 0;
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     color: var(--app-muted);
 }
 
 .repo-settings__input {
     border: 1px solid var(--app-border);
-    border-radius: 0.55rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.55rem 0.65rem;
     font: inherit;
     color: var(--app-text);
@@ -77,9 +74,11 @@
 
 .repo-settings__button {
     border: 1px solid var(--app-border-strong);
-    border-radius: 0.55rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.5rem 0.8rem;
     font: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
     cursor: pointer;
     color: var(--app-text);
     background-color: var(--app-surface);
@@ -95,13 +94,14 @@
 }
 
 .repo-settings__button--primary {
-    border-color: #225fe0;
+    border-color: var(--app-accent);
     color: #ffffff;
     background-color: var(--app-accent);
 }
 
 .repo-settings__button--primary:hover:not(:disabled) {
-    background-color: #225fe0;
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
 }
 
 .repo-settings__button--danger {
@@ -116,7 +116,7 @@
 
 .repo-settings__status {
     border: 1px solid #7ecb8d;
-    border-radius: 0.6rem;
+    border-radius: var(--app-radius-sm);
     background-color: #f2fcf4;
     color: #1f6c2f;
     padding: 0.6rem 0.75rem;
@@ -136,8 +136,9 @@
     width: 100%;
     border-collapse: collapse;
     border: 1px solid var(--app-border);
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     overflow: hidden;
+    box-shadow: var(--app-shadow);
 }
 
 .repo-settings__table th,
@@ -149,9 +150,9 @@
 }
 
 .repo-settings__table th {
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     color: var(--app-muted);
     background-color: var(--app-surface-muted);
 }

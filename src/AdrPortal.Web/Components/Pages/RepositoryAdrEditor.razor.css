@@ -7,7 +7,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 0.9rem;
 }
 
 .adr-editor-page__actions {
@@ -19,24 +19,29 @@
 
 .adr-editor-page__link {
     border: 1px solid var(--app-border);
-    border-radius: 0.6rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.5rem 0.75rem;
     color: var(--app-text);
     text-decoration: none;
     background-color: var(--app-surface-muted);
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     font-weight: 600;
+}
+
+.adr-editor-page__link:hover {
+    background-color: #f3f4f6;
 }
 
 .adr-editor-page__context {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
+    gap: 0.6rem 1rem;
     border: 1px solid var(--app-border);
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     background-color: #ffffff;
+    box-shadow: var(--app-shadow);
     padding: 0.75rem 0.9rem;
-    font-size: 0.86rem;
+    font-size: 0.85rem;
 }
 
 .adr-editor-page__context span {
@@ -44,7 +49,7 @@
 }
 
 .adr-editor-page__context strong {
-    color: var(--app-text);
+    color: var(--app-heading);
 }
 
 .adr-editor {
@@ -54,12 +59,13 @@
 
 .adr-editor__fieldset {
     border: 1px solid var(--app-border);
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     padding: 1rem;
     margin: 0;
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
+    background-color: #fcfdff;
 }
 
 .adr-editor__legend {
@@ -88,7 +94,7 @@
 }
 
 .adr-editor__label {
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 600;
     color: var(--app-text);
 }
@@ -96,7 +102,7 @@
 .adr-editor__input,
 .adr-editor__textarea {
     border: 1px solid var(--app-border);
-    border-radius: 0.55rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.55rem 0.65rem;
     font: inherit;
     color: var(--app-text);
@@ -115,13 +121,13 @@
 .adr-editor__textarea--body {
     min-height: 38rem;
     font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
-    font-size: 0.93rem;
-    line-height: 1.45;
+    font-size: 0.9rem;
+    line-height: 1.5;
 }
 
 .adr-editor__hint {
     color: var(--app-muted);
-    font-size: 0.85rem;
+    font-size: 0.84rem;
 }
 
 .adr-editor__actions {
@@ -132,12 +138,14 @@
 
 .adr-editor__button {
     border: 1px solid var(--app-border-strong);
-    border-radius: 0.55rem;
+    border-radius: var(--app-radius-sm);
     padding: 0.5rem 0.8rem;
     font: inherit;
     cursor: pointer;
     color: var(--app-text);
     background-color: var(--app-surface);
+    font-size: 0.84rem;
+    font-weight: 600;
 }
 
 .adr-editor__button:hover:not(:disabled) {
@@ -150,13 +158,14 @@
 }
 
 .adr-editor__button--primary {
-    border-color: #225fe0;
+    border-color: var(--app-accent);
     color: #ffffff;
     background-color: var(--app-accent);
 }
 
 .adr-editor__button--primary:hover:not(:disabled) {
-    background-color: #225fe0;
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
 }
 
 .adr-editor__button--analysis {
@@ -181,7 +190,7 @@
 
 .adr-editor-ai {
     border: 1px solid var(--app-border);
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     padding: 0.9rem;
     background-color: #f8fafc;
     display: flex;
@@ -206,11 +215,11 @@
 
 .adr-editor-ai__fit {
     color: var(--app-muted);
-    font-size: 0.9rem;
+    font-size: 0.88rem;
 }
 
 .adr-editor-ai__fallback {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     color: #1d4ed8;
     font-weight: 600;
 }
@@ -226,12 +235,12 @@
 .adr-editor-ai__section li p {
     margin: 0.2rem 0 0 0;
     color: var(--app-muted);
-    font-size: 0.86rem;
+    font-size: 0.84rem;
 }
 
 .adr-editor-ai__option-summary {
     color: var(--app-text) !important;
-    font-size: 0.87rem !important;
+    font-size: 0.86rem !important;
 }
 
 .adr-editor-ai__sublist {
@@ -243,7 +252,7 @@
 
 .adr-editor-manual {
     border: 1px dashed #93c5fd;
-    border-radius: 0.7rem;
+    border-radius: var(--app-radius-md);
     padding: 0.9rem;
     background-color: #eff6ff;
     display: flex;
@@ -267,11 +276,11 @@
 .repo-status {
     margin: 0;
     border: 1px solid #bfdbfe;
-    border-radius: 0.6rem;
+    border-radius: var(--app-radius-sm);
     background-color: #eff6ff;
     color: #1e3a8a;
     padding: 0.6rem 0.75rem;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
 }
 
 .repo-status--error {

@@ -12,7 +12,7 @@
 
 .global-library-page__guidance {
     border: 1px solid var(--app-border);
-    border-radius: 0.75rem;
+    border-radius: var(--app-radius-md);
     background-color: var(--app-surface-muted);
     padding: 0.85rem 0.95rem;
 }
@@ -71,7 +71,7 @@
 }
 
 .global-library-table__grid th {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--app-muted);
