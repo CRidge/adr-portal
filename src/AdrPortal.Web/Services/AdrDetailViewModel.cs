@@ -76,4 +76,9 @@ public sealed record AdrDetailViewModel
     /// Gets rendered HTML content derived from markdown.
     /// </summary>
     public required string HtmlContent { get; init; }
+
+    /// <summary>
+    /// Gets structured MADR sections extracted for richer presentation.
+    /// </summary>
+    public required AdrStructuredSectionsViewModel StructuredSections { get; init; }
 }

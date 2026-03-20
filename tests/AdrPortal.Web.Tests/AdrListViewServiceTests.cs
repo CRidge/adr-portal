@@ -64,6 +64,61 @@ public class AdrListViewServiceTests
         await Assert.That(detail.GlobalVersion).IsEqualTo(5);
         await Assert.That(detail.SupersededByNumber).IsEqualTo(14);
         await Assert.That(detail.HtmlContent).IsEqualTo("<h1>Deprecate Legacy RPC</h1>");
+        await Assert.That(detail.StructuredSections).IsNotNull();
+        await Assert.That(detail.StructuredSections.ConsideredOptions.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task BuildDetail_ExtractsStructuredDecisionSections()
+    {
+        var service = new AdrListViewService();
+        var rawMarkdown = """
+            ---
+            status: accepted
+            date: 2026-03-19
+            ---
+            # Runtime Selection
+
+            ## Considered Options
+
+            * .NET 10
+            * .NET 8
+
+            ## Decision Outcome
+
+            Chosen option: ".NET 10", because latest runtime and language support.
+
+            ### Consequences
+
+            * Good, because newer runtime features are available.
+            * Bad, because some dependencies may lag.
+
+            ## Pros and Cons of the Options
+
+            ### .NET 10
+
+            * Good, because modern features.
+            * Bad, because ecosystem lag risk.
+
+            ### .NET 8
+
+            * Good, because long-term support.
+            * Bad, because misses newer capabilities.
+            """;
+
+        var adr = CreateAdr(number: 21, title: "Runtime Selection", slug: "runtime-selection", status: AdrStatus.Accepted)
+            with { RawMarkdown = rawMarkdown };
+
+        var detail = service.BuildDetail(adr, "<h1>Runtime Selection</h1>");
+
+        await Assert.That(detail.StructuredSections.SelectedOption).IsEqualTo(".NET 10");
+        await Assert.That(detail.StructuredSections.Rationale).Contains("latest runtime");
+        await Assert.That(detail.StructuredSections.ConsideredOptions.Count).IsEqualTo(2);
+        await Assert.That(detail.StructuredSections.ConsideredOptions[0].Name).IsEqualTo(".NET 10");
+        await Assert.That(detail.StructuredSections.ConsideredOptions[0].Pros.Count).IsEqualTo(1);
+        await Assert.That(detail.StructuredSections.ConsideredOptions[0].Cons.Count).IsEqualTo(1);
+        await Assert.That(detail.StructuredSections.PositiveConsequences.Count).IsEqualTo(1);
+        await Assert.That(detail.StructuredSections.NegativeConsequences.Count).IsEqualTo(1);
     }
 
     private static Adr CreateAdr(int number, string title, string slug, AdrStatus status)

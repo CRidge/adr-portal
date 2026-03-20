@@ -8,6 +8,8 @@ namespace AdrPortal.Web.Services;
 /// </summary>
 public sealed class AdrListViewService
 {
+    private readonly AdrStructuredSectionExtractor adrStructuredSectionExtractor = new();
+
     /// <summary>
     /// Creates projected list items and filter options for the ADR list route.
     /// </summary>
@@ -65,7 +67,8 @@ public sealed class AdrListViewService
             DecisionMakers = adr.DecisionMakers,
             Consulted = adr.Consulted,
             Informed = adr.Informed,
-            HtmlContent = htmlContent
+            HtmlContent = htmlContent,
+            StructuredSections = adrStructuredSectionExtractor.Extract(adr.RawMarkdown)
         };
     }
 

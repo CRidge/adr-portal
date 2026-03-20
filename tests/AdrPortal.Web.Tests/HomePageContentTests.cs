@@ -122,10 +122,15 @@ public class HomePageContentTests
         await Assert.That(detailMarkup.Contains("Accept ADR", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Propose library update", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("/global/{syncStatus.GlobalId}", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Open global library", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Mark superseded", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Mark deprecated", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Find Affected ADRs", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Affected ADRs", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Decision analysis", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Selected option", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Positive consequences", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Negative consequences", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/new\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/{Number:int}/edit\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("MADR markdown body", StringComparison.Ordinal)).IsTrue();

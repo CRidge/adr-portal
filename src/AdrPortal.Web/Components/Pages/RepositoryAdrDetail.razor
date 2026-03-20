@@ -270,6 +270,106 @@ else
             </section>
         }
 
+        @if (detail.StructuredSections.ConsideredOptions.Count > 0
+            || !string.IsNullOrWhiteSpace(detail.StructuredSections.SelectedOption)
+            || detail.StructuredSections.PositiveConsequences.Count > 0
+            || detail.StructuredSections.NegativeConsequences.Count > 0)
+        {
+            <section class="adr-detail__decision">
+                <h3>Decision analysis</h3>
+
+                @if (!string.IsNullOrWhiteSpace(detail.StructuredSections.SelectedOption))
+                {
+                    <div class="adr-detail__selected-option">
+                        <span class="adr-detail__selected-label">Selected option</span>
+                        <strong>@detail.StructuredSections.SelectedOption</strong>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(detail.StructuredSections.Rationale))
+                {
+                    <p class="adr-detail__rationale">@detail.StructuredSections.Rationale</p>
+                }
+
+                @if (detail.StructuredSections.ConsideredOptions.Count > 0)
+                {
+                    <div class="adr-detail__options">
+                        @foreach (var option in detail.StructuredSections.ConsideredOptions)
+                        {
+                            var isSelected = IsSelectedOption(option.Name, detail.StructuredSections.SelectedOption);
+                            <article class="adr-option-card @(isSelected ? "adr-option-card--selected" : string.Empty)">
+                                <header class="adr-option-card__header">
+                                    <h4>@option.Name</h4>
+                                    @if (isSelected)
+                                    {
+                                        <span class="state-badge accepted">Selected</span>
+                                    }
+                                </header>
+                                @if (!string.IsNullOrWhiteSpace(option.Summary))
+                                {
+                                    <p class="adr-option-card__summary">@option.Summary</p>
+                                }
+                                @if (option.Pros.Count > 0)
+                                {
+                                    <div class="adr-option-card__column">
+                                        <strong>Pros</strong>
+                                        <ul>
+                                            @foreach (var pro in option.Pros)
+                                            {
+                                                <li>@pro</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                                @if (option.Cons.Count > 0)
+                                {
+                                    <div class="adr-option-card__column">
+                                        <strong>Cons</strong>
+                                        <ul>
+                                            @foreach (var con in option.Cons)
+                                            {
+                                                <li>@con</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
+
+                @if (detail.StructuredSections.PositiveConsequences.Count > 0 || detail.StructuredSections.NegativeConsequences.Count > 0)
+                {
+                    <div class="adr-detail__consequences">
+                        @if (detail.StructuredSections.PositiveConsequences.Count > 0)
+                        {
+                            <section class="adr-consequence-card adr-consequence-card--positive">
+                                <h4>Positive consequences</h4>
+                                <ul>
+                                    @foreach (var consequence in detail.StructuredSections.PositiveConsequences)
+                                    {
+                                        <li>@consequence</li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+                        @if (detail.StructuredSections.NegativeConsequences.Count > 0)
+                        {
+                            <section class="adr-consequence-card adr-consequence-card--negative">
+                                <h4>Negative consequences</h4>
+                                <ul>
+                                    @foreach (var consequence in detail.StructuredSections.NegativeConsequences)
+                                    {
+                                        <li>@consequence</li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+                    </div>
+                }
+            </section>
+        }
+
         <section class="adr-detail__content">
             @((MarkupString)detail.HtmlContent)
         </section>
@@ -614,6 +714,26 @@ else
             AdrImpactLevel.Medium => "impact-medium",
             _ => "impact-low"
         };
+    }
+
+    /// <summary>
+    /// Determines whether an option card should be marked as the selected option.
+    /// </summary>
+    /// <param name="optionName">Option card name.</param>
+    /// <param name="selectedOption">Selected option text extracted from decision outcome.</param>
+    /// <returns><see langword="true"/> when selected; otherwise <see langword="false"/>.</returns>
+    private static bool IsSelectedOption(string optionName, string? selectedOption)
+    {
+        if (string.IsNullOrWhiteSpace(optionName) || string.IsNullOrWhiteSpace(selectedOption))
+        {
+            return false;
+        }
+
+        var normalizedOption = optionName.Trim().Trim('"');
+        var normalizedSelected = selectedOption.Trim().Trim('"');
+
+        return string.Equals(normalizedOption, normalizedSelected, StringComparison.OrdinalIgnoreCase)
+            || normalizedSelected.Contains(normalizedOption, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
