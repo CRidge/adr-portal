@@ -41,17 +41,17 @@
 
             <div class="repo-settings__field repo-settings__field--readonly">
                 <label class="repo-settings__label" for="repo-root-preview">Managed checkout path</label>
-                <InputText id="repo-root-preview" class="repo-settings__input" Value="@GetManagedCheckoutPreview()" readonly />
+                <input id="repo-root-preview" class="repo-settings__input" type="text" value="@GetManagedCheckoutPreview()" readonly />
             </div>
 
             <div class="repo-settings__field repo-settings__field--readonly">
                 <label class="repo-settings__label" for="repo-adr-preview">ADR folder</label>
-                <InputText id="repo-adr-preview" class="repo-settings__input" Value="@ManagedRepositoryDefaults.DefaultAdrFolder" readonly />
+                <input id="repo-adr-preview" class="repo-settings__input" type="text" value="@ManagedRepositoryDefaults.DefaultAdrFolder" readonly />
             </div>
 
             <div class="repo-settings__field repo-settings__field--readonly">
                 <label class="repo-settings__label" for="repo-inbox-preview">Inbox folder</label>
-                <InputText id="repo-inbox-preview" class="repo-settings__input" Value="@ManagedRepositoryDefaults.DefaultInboxFolder" readonly />
+                <input id="repo-inbox-preview" class="repo-settings__input" type="text" value="@ManagedRepositoryDefaults.DefaultInboxFolder" readonly />
             </div>
 
             <label class="repo-settings__checkbox">
