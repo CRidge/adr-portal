@@ -138,9 +138,14 @@ Need deterministic local orchestration.
 
         await Assert.That(result.IsFallback).IsTrue();
         await Assert.That(result.FallbackReason).IsEqualTo("Configured deterministic AI provider.");
-        await Assert.That(result.Options.Count).IsEqualTo(2);
+        await Assert.That(result.Options.Count).IsGreaterThanOrEqualTo(3);
         await Assert.That(result.PreferredOption).IsEqualTo(result.Options[0].OptionName);
         await Assert.That(result.GroundingAdrNumbers.Count).IsEqualTo(2);
+        await Assert.That(result.RecommendationSummary.Contains("Recommend '", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(result.Options.All(option => option.Pros.Count > 0)).IsTrue();
+        await Assert.That(result.Options.All(option => option.Cons.Count > 0)).IsTrue();
+        await Assert.That(result.Options.All(option => option.Summary.Length > 20)).IsTrue();
+        await Assert.That(result.SuggestedAlternatives.Count).IsGreaterThan(0);
     }
 
     [Test]

@@ -79,6 +79,8 @@ Need to align hosting and telemetry decisions.
         await Assert.That(result!.PreferredOption).IsEqualTo("Use .NET Aspire");
         await Assert.That(result.IsFallback).IsTrue();
         await Assert.That(result.Options.Count).IsEqualTo(2);
+        await Assert.That(result.Options.All(option => option.Pros.Count > 0)).IsTrue();
+        await Assert.That(result.Options.All(option => option.Cons.Count > 0)).IsTrue();
         await Assert.That(aiService.EvaluateCallCount).IsEqualTo(1);
         await Assert.That(aiService.LastEvaluationDraft).IsNotNull();
         await Assert.That(aiService.LastEvaluationDraft!.DecisionDrivers.Count).IsEqualTo(2);
@@ -391,6 +393,8 @@ Need deterministic orchestration.
                             Summary = $"Summary for {option}",
                             Score = Math.Round(0.9 - (index * 0.1), 2, MidpointRounding.AwayFromZero),
                             Rationale = $"Rationale for {option}",
+                            Pros = ["Pro"],
+                            Cons = ["Con"],
                             TradeOffs = ["Trade-off"]
                         })
                         .ToArray(),

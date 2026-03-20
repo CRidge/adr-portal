@@ -54,9 +54,67 @@ public sealed class DeterministicAiService : IAiService
 
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
     private static readonly Regex SlugRegex = new(@"[^a-z0-9]+", RegexOptions.Compiled);
+    private static readonly HashSet<string> IgnoredSignalTerms =
+    [
+        "the",
+        "and",
+        "for",
+        "with",
+        "that",
+        "this",
+        "from",
+        "into",
+        "using",
+        "use",
+        "option",
+        "options",
+        "approach",
+        "based",
+        "over",
+        "under",
+        "through",
+        "when",
+        "where",
+        "while",
+        "without",
+        "within",
+        "must",
+        "should",
+        "could",
+        "would",
+        "will",
+        "not",
+        "are",
+        "was",
+        "were",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "more",
+        "less",
+        "only",
+        "also"
+    ];
     private const int MaximumFiles = 160;
     private const int MaximumCharactersPerChunk = 1200;
     private const int MaximumPreviewCharacters = 360;
+    private const int MinimumRecommendationOptions = 3;
+    private const int MaximumRecommendationOptions = 6;
+
+    private sealed record OptionScoreResult
+    {
+        public required string Option { get; init; }
+
+        public required double Score { get; init; }
+
+        public required IReadOnlyList<string> MatchingDrivers { get; init; }
+
+        public required int ContextSignalHits { get; init; }
+
+        public required IReadOnlyList<int> SupportingAdrNumbers { get; init; }
+    }
 
     /// <summary>
     /// Evaluates a draft ADR and returns deterministic recommendation output.
@@ -74,57 +132,44 @@ public sealed class DeterministicAiService : IAiService
         ArgumentNullException.ThrowIfNull(existingAdrs);
         ct.ThrowIfCancellationRequested();
 
-        var normalizedOptions = draftAdr.ConsideredOptions
-            .Where(option => !string.IsNullOrWhiteSpace(option))
-            .Select(option => option.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        if (normalizedOptions.Length is 0)
-        {
-            normalizedOptions =
-            [
-                "Retain current architecture with incremental improvements",
-                "Introduce focused platform standardization"
-            ];
-        }
-
-        var rankedOptions = normalizedOptions
-            .Select(option => new
-            {
-                Option = option,
-                Score = ScoreOption(option, existingAdrs, draftAdr)
-            })
+        var candidateOptions = BuildCandidateOptions(draftAdr, existingAdrs);
+        var rankedOptions = candidateOptions
+            .Select(option => ScoreOption(option, existingAdrs, draftAdr))
             .OrderByDescending(item => item.Score)
+            .ThenByDescending(item => item.MatchingDrivers.Count)
             .ThenBy(item => item.Option, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         var preferred = rankedOptions[0];
+        var runnerUp = rankedOptions.Length > 1 ? rankedOptions[1] : null;
         var optionRecommendations = rankedOptions
             .Select(
                 item => new AdrOptionRecommendation
                 {
                     OptionName = item.Option,
-                    Summary = BuildOptionSummary(item.Option),
+                    Summary = BuildOptionSummary(item, draftAdr, existingAdrs),
                     Score = item.Score,
-                    Rationale = BuildOptionRationale(item.Option, item.Score, existingAdrs, draftAdr),
-                    TradeOffs = BuildOptionTradeOffs(item.Option)
+                    Rationale = BuildOptionRationale(item, draftAdr),
+                    Pros = BuildOptionPros(item, draftAdr, existingAdrs),
+                    Cons = BuildOptionCons(item, draftAdr, existingAdrs),
+                    TradeOffs = BuildOptionTradeOffs(item, draftAdr, existingAdrs)
                 })
             .ToArray();
 
-        var risks = BuildRecommendationRisks(draftAdr, existingAdrs);
-        var alternatives = BuildSuggestedAlternatives(preferred.Option, normalizedOptions);
-        var groundingNumbers = existingAdrs
-            .OrderBy(adr => adr.Number)
+        var risks = BuildRecommendationRisks(draftAdr, existingAdrs, preferred, rankedOptions.Length);
+        var alternatives = BuildSuggestedAlternatives(preferred.Option, rankedOptions);
+        var groundingNumbers = rankedOptions
+            .SelectMany(option => option.SupportingAdrNumbers)
+            .Concat(existingAdrs.OrderBy(adr => adr.Number).Select(adr => adr.Number))
+            .Distinct()
             .Take(8)
-            .Select(adr => adr.Number)
             .ToArray();
 
         var recommendation = new AdrEvaluationRecommendation
         {
             PreferredOption = preferred.Option,
-            RecommendationSummary = $"Prefer '{preferred.Option}' based on deterministic alignment with existing ADR constraints.",
-            DecisionFit = BuildDecisionFit(existingAdrs, draftAdr),
+            RecommendationSummary = BuildRecommendationSummary(preferred, runnerUp, draftAdr),
+            DecisionFit = BuildDecisionFit(existingAdrs, draftAdr, preferred),
             Options = optionRecommendations,
             Risks = risks,
             SuggestedAlternatives = alternatives,
@@ -308,88 +353,287 @@ public sealed class DeterministicAiService : IAiService
         return values.Any(value => content.Contains(value, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static double ScoreOption(
+    private static IReadOnlyList<string> BuildCandidateOptions(
+        AdrDraftForAnalysis draftAdr,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs)
+    {
+        var options = new List<string>();
+        foreach (var consideredOption in draftAdr.ConsideredOptions)
+        {
+            AddOptionCandidate(options, consideredOption);
+        }
+
+        var scope = ResolveDecisionScope(draftAdr);
+        var primaryDriver = ShortenForSentence(
+            draftAdr.DecisionDrivers.FirstOrDefault(),
+            "the primary decision driver");
+        var secondaryDriver = ShortenForSentence(
+            draftAdr.DecisionDrivers.Skip(1).FirstOrDefault(),
+            "cross-team consistency");
+        var acceptedReference = existingAdrs
+            .Where(adr => adr.Status is AdrPortal.Core.Entities.AdrStatus.Accepted)
+            .OrderBy(adr => adr.Number)
+            .Select(adr => adr.Title)
+            .FirstOrDefault();
+
+        AddOptionCandidate(options, $"Standardize {scope} around {primaryDriver}");
+        AddOptionCandidate(options, $"Keep current {scope} approach with targeted improvements");
+        AddOptionCandidate(options, $"Adopt a phased rollout for {scope} with measurable checkpoints");
+        AddOptionCandidate(options, $"Blend {scope} choices to balance {primaryDriver} and {secondaryDriver}");
+        if (!string.IsNullOrWhiteSpace(acceptedReference))
+        {
+            AddOptionCandidate(options, $"Align {scope} with precedent from '{ShortenForSentence(acceptedReference, acceptedReference)}'");
+        }
+
+        AddOptionCandidate(options, $"Delay final {scope} commitment until additional evidence is collected");
+
+        if (options.Count < MinimumRecommendationOptions)
+        {
+            AddOptionCandidate(options, $"Adopt a platform-default baseline for {scope}");
+            AddOptionCandidate(options, $"Continue current {scope} decision with explicit guardrails");
+            AddOptionCandidate(options, $"Run a short pilot before finalizing {scope}");
+        }
+
+        return options
+            .Take(MaximumRecommendationOptions)
+            .ToArray();
+    }
+
+    private static OptionScoreResult ScoreOption(
         string option,
         IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
         AdrDraftForAnalysis draftAdr)
     {
-        var titleHits = existingAdrs.Count(adr => adr.Title.Contains(option, StringComparison.OrdinalIgnoreCase));
-        var driverHits = draftAdr.DecisionDrivers.Count(driver =>
-            option.Contains(driver, StringComparison.OrdinalIgnoreCase)
-            || driver.Contains(option, StringComparison.OrdinalIgnoreCase));
-        var normalized = 0.45 + Math.Min(0.25, titleHits * 0.08) + Math.Min(0.2, driverHits * 0.05);
+        var optionTerms = Tokenize(option);
+        var matchingDrivers = draftAdr.DecisionDrivers
+            .Where(driver => HasTokenOverlap(optionTerms, Tokenize(driver)))
+            .Select(driver => ShortenForSentence(driver, driver))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToArray();
+        var contextTerms = Tokenize($"{draftAdr.ProblemStatement} {draftAdr.BodyMarkdown}");
+        var contextSignalHits = optionTerms.Count(contextTerms.Contains);
+        var supportingAdrNumbers = existingAdrs
+            .Where(adr => HasTokenOverlap(optionTerms, Tokenize($"{adr.Title} {adr.Slug}")))
+            .OrderBy(adr => adr.Number)
+            .Take(4)
+            .Select(adr => adr.Number)
+            .ToArray();
+        var normalized = 0.38
+            + Math.Min(0.30, matchingDrivers.Length * 0.12)
+            + Math.Min(0.18, contextSignalHits * 0.03)
+            + Math.Min(0.14, supportingAdrNumbers.Length * 0.05);
         var bounded = Math.Clamp(normalized, 0.05, 0.99);
-        return Math.Round(bounded, 2, MidpointRounding.AwayFromZero);
+        return new OptionScoreResult
+        {
+            Option = option,
+            Score = Math.Round(bounded, 2, MidpointRounding.AwayFromZero),
+            MatchingDrivers = matchingDrivers,
+            ContextSignalHits = contextSignalHits,
+            SupportingAdrNumbers = supportingAdrNumbers
+        };
     }
 
-    private static string BuildOptionSummary(string option)
+    private static string BuildOptionSummary(
+        OptionScoreResult optionScore,
+        AdrDraftForAnalysis draftAdr,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs)
     {
-        return $"Option '{option}' emphasizes maintainable ADR consistency and controlled implementation risk.";
+        var pros = BuildOptionPros(optionScore, draftAdr, existingAdrs);
+        var cons = BuildOptionCons(optionScore, draftAdr, existingAdrs);
+        var leadPro = RemoveSentenceTerminal(pros[0]);
+        var leadCon = RemoveSentenceTerminal(cons[0]);
+        return $"Favors {leadPro} but introduces {leadCon}.";
     }
 
     private static string BuildOptionRationale(
-        string option,
-        double score,
-        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
+        OptionScoreResult optionScore,
         AdrDraftForAnalysis draftAdr)
     {
-        var comparableAdrs = existingAdrs
-            .Where(adr =>
-                adr.Title.Contains(option, StringComparison.OrdinalIgnoreCase)
-                || option.Contains(adr.Slug, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(adr => adr.Number)
-            .Take(3)
-            .Select(adr => $"ADR-{adr.Number:0000}")
-            .ToArray();
+        var rationaleParts = new List<string>
+        {
+            $"Score {optionScore.Score:0.00} is based on {optionScore.MatchingDrivers.Count} driver match(es) and {optionScore.ContextSignalHits} contextual signal(s)."
+        };
 
-        var grounding = comparableAdrs.Length is 0
-            ? "No close title match in existing ADRs."
-            : $"Grounded by {string.Join(", ", comparableAdrs)}.";
+        if (optionScore.SupportingAdrNumbers.Count > 0)
+        {
+            rationaleParts.Add($"Related ADR precedent: {FormatAdrNumbers(optionScore.SupportingAdrNumbers)}.");
+        }
+        else
+        {
+            rationaleParts.Add("No close ADR precedent was detected in titles/slugs.");
+        }
 
-        var driverCount = draftAdr.DecisionDrivers.Count;
-        return $"{grounding} Deterministic score {score:0.00} reflects alignment with {driverCount} decision driver(s).";
+        if (draftAdr.DecisionDrivers.Count > 0 && optionScore.MatchingDrivers.Count > 0)
+        {
+            rationaleParts.Add($"Aligned drivers: {string.Join(", ", optionScore.MatchingDrivers)}.");
+        }
+
+        return string.Join(' ', rationaleParts);
     }
 
-    private static IReadOnlyList<string> BuildOptionTradeOffs(string option)
+    private static IReadOnlyList<string> BuildOptionPros(
+        OptionScoreResult optionScore,
+        AdrDraftForAnalysis draftAdr,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs)
     {
+        var pros = new List<string>();
+        if (optionScore.MatchingDrivers.Count > 0)
+        {
+            pros.Add($"Directly supports driver(s): {string.Join(", ", optionScore.MatchingDrivers)}.");
+        }
+        else
+        {
+            pros.Add("Provides a concrete path for the current decision scope.");
+        }
+
+        if (optionScore.SupportingAdrNumbers.Count > 0)
+        {
+            pros.Add($"Builds on precedent from {FormatAdrNumbers(optionScore.SupportingAdrNumbers)}.");
+        }
+        else if (existingAdrs.Count is 0)
+        {
+            pros.Add("Can proceed independently even without historical ADR precedent.");
+        }
+
+        if (ContainsAny(optionScore.Option, "standardize", "single", "baseline", "platform"))
+        {
+            pros.Add("Improves consistency across teams and repositories.");
+        }
+        else if (ContainsAny(optionScore.Option, "phased", "pilot", "checkpoint", "rollout"))
+        {
+            pros.Add("Supports incremental rollout with measurable checkpoints.");
+        }
+        else if (ContainsAny(optionScore.Option, "keep current", "targeted improvements", "continue"))
+        {
+            pros.Add("Limits immediate disruption by reducing scope of change.");
+        }
+
+        if (pros.Count is 1 && draftAdr.DecisionDrivers.Count > 1)
+        {
+            pros.Add("Keeps multiple decision drivers visible during implementation planning.");
+        }
+
+        return pros
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildOptionCons(
+        OptionScoreResult optionScore,
+        AdrDraftForAnalysis draftAdr,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs)
+    {
+        var cons = new List<string>();
+        if (ContainsAny(optionScore.Option, "standardize", "single", "baseline", "platform"))
+        {
+            cons.Add("May reduce flexibility for edge-case workloads.");
+        }
+        else if (ContainsAny(optionScore.Option, "phased", "pilot", "checkpoint", "rollout"))
+        {
+            cons.Add("Delays full realization of benefits until later rollout phases.");
+        }
+        else if (ContainsAny(optionScore.Option, "keep current", "targeted improvements", "continue"))
+        {
+            cons.Add("Can preserve existing inconsistencies or technical debt.");
+        }
+
+        var minimumDriverCoverage = Math.Max(1, Math.Min(2, draftAdr.DecisionDrivers.Count));
+        if (optionScore.MatchingDrivers.Count < minimumDriverCoverage)
+        {
+            cons.Add("Does not clearly satisfy all stated decision drivers without additional controls.");
+        }
+
+        if (existingAdrs.Count > 0 && optionScore.SupportingAdrNumbers.Count is 0)
+        {
+            cons.Add("Has limited precedent in the current ADR corpus, increasing validation effort.");
+        }
+
+        if (cons.Count is 0)
+        {
+            cons.Add("Introduces trade-offs that require explicit rollout and ownership planning.");
+        }
+
+        if (cons.Count is 1)
+        {
+            cons.Add("Needs measurable acceptance criteria before implementation commitment.");
+        }
+
+        return cons
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildOptionTradeOffs(
+        OptionScoreResult optionScore,
+        AdrDraftForAnalysis draftAdr,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs)
+    {
+        var pros = BuildOptionPros(optionScore, draftAdr, existingAdrs);
+        var cons = BuildOptionCons(optionScore, draftAdr, existingAdrs);
         return
         [
-            $"Requires explicit implementation scope for '{option}'.",
-            "May increase coordination overhead during rollout."
+            RemoveSentenceTerminal(pros[0]),
+            RemoveSentenceTerminal(cons[0])
         ];
     }
 
     private static IReadOnlyList<string> BuildRecommendationRisks(
         AdrDraftForAnalysis draftAdr,
-        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs)
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
+        OptionScoreResult preferredOption,
+        int optionCount)
     {
-        var risks = new List<string>
-        {
-            "Deterministic fallback cannot evaluate nuanced architectural semantics from external model context."
-        };
+        var risks = new List<string>();
+        risks.Add("Deterministic fallback cannot evaluate unstated organizational constraints or runtime evidence.");
 
-        if (draftAdr.ConsideredOptions.Count < 2)
+        if (optionCount < MinimumRecommendationOptions)
         {
-            risks.Add("Draft ADR has fewer than two considered options, reducing recommendation confidence.");
+            risks.Add($"Only {optionCount} option(s) were available for ranking; add additional options manually for broader evaluation.");
         }
 
-        if (existingAdrs.Count is 0)
+        if (draftAdr.DecisionDrivers.Count is 0)
         {
-            risks.Add("No existing ADR corpus available for contextual grounding.");
+            risks.Add("Decision Drivers section is empty, reducing recommendation confidence.");
+        }
+        else
+        {
+            var minimumDriverCoverage = Math.Max(1, Math.Min(2, draftAdr.DecisionDrivers.Count));
+            if (preferredOption.MatchingDrivers.Count < minimumDriverCoverage)
+            {
+                risks.Add("Recommended option does not map clearly to all key decision drivers; validate with stakeholders.");
+            }
         }
 
-        return risks;
+        if (existingAdrs.Count > 0 && preferredOption.SupportingAdrNumbers.Count is 0)
+        {
+            risks.Add("No close ADR precedent was found for the recommended option, increasing implementation uncertainty.");
+        }
+
+        if (existingAdrs.Count is 0 && draftAdr.ConsideredOptions.Count < 2)
+        {
+            risks.Add("No existing ADR corpus is available and the draft has limited options; manual review should widen the decision space.");
+        }
+
+        return risks
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
-    private static IReadOnlyList<string> BuildSuggestedAlternatives(string preferredOption, IReadOnlyList<string> options)
+    private static IReadOnlyList<string> BuildSuggestedAlternatives(
+        string preferredOption,
+        IReadOnlyList<OptionScoreResult> rankedOptions)
     {
-        var alternatives = options
-            .Where(option => !string.Equals(option, preferredOption, StringComparison.OrdinalIgnoreCase))
+        var alternatives = rankedOptions
+            .Where(option => !string.Equals(option.Option, preferredOption, StringComparison.OrdinalIgnoreCase))
             .Take(3)
+            .Select(option => $"{option.Option} (score {option.Score:0.00})")
             .ToList();
         if (alternatives.Count is 0)
         {
-            alternatives.Add("Delay decision until additional empirical constraints are documented.");
+            alternatives.Add("Delay decision until additional constraints are documented and compared.");
         }
 
         return alternatives;
@@ -397,7 +641,8 @@ public sealed class DeterministicAiService : IAiService
 
     private static string BuildDecisionFit(
         IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
-        AdrDraftForAnalysis draftAdr)
+        AdrDraftForAnalysis draftAdr,
+        OptionScoreResult preferredOption)
     {
         if (existingAdrs.Count is 0)
         {
@@ -405,7 +650,13 @@ public sealed class DeterministicAiService : IAiService
         }
 
         var acceptedCount = existingAdrs.Count(adr => adr.Status is AdrPortal.Core.Entities.AdrStatus.Accepted);
-        return $"Existing corpus includes {existingAdrs.Count} ADR(s), with {acceptedCount} accepted baseline decision(s), informing recommendation fit.";
+        var precedentText = preferredOption.SupportingAdrNumbers.Count is 0
+            ? "No directly comparable ADR precedent was found."
+            : $"Comparable ADRs: {FormatAdrNumbers(preferredOption.SupportingAdrNumbers)}.";
+        var driverCoverageText = draftAdr.DecisionDrivers.Count is 0
+            ? "Driver coverage is inferred from context text."
+            : $"Recommendation aligns with {preferredOption.MatchingDrivers.Count} of {draftAdr.DecisionDrivers.Count} stated driver(s).";
+        return $"Grounded against {existingAdrs.Count} ADR(s), including {acceptedCount} accepted baseline decision(s). {precedentText} {driverCoverageText}";
     }
 
     private static HashSet<string> BuildSignalTerms(AdrDraftForAnalysis draftAdr)
@@ -423,19 +674,114 @@ public sealed class DeterministicAiService : IAiService
         var terms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var value in values)
         {
-            var normalized = NormalizeContent(value ?? string.Empty);
-            foreach (var token in normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (var token in Tokenize(value ?? string.Empty))
             {
-                if (token.Length < 4)
-                {
-                    continue;
-                }
-
                 terms.Add(token);
             }
         }
 
         return terms;
+    }
+
+    private static string BuildRecommendationSummary(
+        OptionScoreResult preferredOption,
+        OptionScoreResult? runnerUpOption,
+        AdrDraftForAnalysis draftAdr)
+    {
+        var leadReason = preferredOption.MatchingDrivers.Count > 0
+            ? $"it best aligns with driver(s): {string.Join(", ", preferredOption.MatchingDrivers)}"
+            : "it has the strongest overall deterministic fit for the documented problem";
+        if (runnerUpOption is null)
+        {
+            return $"Recommend '{preferredOption.Option}' because {leadReason}.";
+        }
+
+        var margin = Math.Max(0, preferredOption.Score - runnerUpOption.Score);
+        var driverContext = draftAdr.DecisionDrivers.Count is 0
+            ? "captured problem context"
+            : $"{draftAdr.DecisionDrivers.Count} stated decision driver(s)";
+        return $"Recommend '{preferredOption.Option}' because {leadReason}. It scores {preferredOption.Score:0.00} versus {runnerUpOption.Score:0.00} for '{runnerUpOption.Option}', giving a {margin:0.00} fit advantage against {driverContext}.";
+    }
+
+    private static string FormatAdrNumbers(IReadOnlyList<int> adrNumbers)
+    {
+        return string.Join(", ", adrNumbers.Select(number => $"ADR-{number:0000}"));
+    }
+
+    private static string ResolveDecisionScope(AdrDraftForAnalysis draftAdr)
+    {
+        if (!string.IsNullOrWhiteSpace(draftAdr.Title))
+        {
+            return $"the '{ShortenForSentence(draftAdr.Title, draftAdr.Title)}' decision";
+        }
+
+        if (!string.IsNullOrWhiteSpace(draftAdr.Slug))
+        {
+            return $"the '{draftAdr.Slug.Replace('-', ' ')}' decision";
+        }
+
+        return "the architecture decision";
+    }
+
+    private static void AddOptionCandidate(ICollection<string> options, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        var normalized = WhitespaceRegex.Replace(value.Trim(), " ");
+        if (normalized.Length < 8)
+        {
+            return;
+        }
+
+        if (options.Any(existing => string.Equals(existing, normalized, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        options.Add(normalized);
+    }
+
+    private static string ShortenForSentence(string? value, string fallbackValue)
+    {
+        var normalized = WhitespaceRegex.Replace(value ?? string.Empty, " ").Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return fallbackValue;
+        }
+
+        return normalized.Length <= 72
+            ? normalized
+            : $"{normalized[..72].TrimEnd()}…";
+    }
+
+    private static string RemoveSentenceTerminal(string value)
+    {
+        return value.Trim().TrimEnd('.', ';', ':');
+    }
+
+    private static HashSet<string> Tokenize(string value)
+    {
+        var terms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var normalized = NormalizeContent(value);
+        foreach (var token in normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (token.Length < 4 || IgnoredSignalTerms.Contains(token))
+            {
+                continue;
+            }
+
+            terms.Add(token);
+        }
+
+        return terms;
+    }
+
+    private static bool HasTokenOverlap(ISet<string> left, ISet<string> right)
+    {
+        return left.Overlaps(right);
     }
 
     private static AffectedAdrResultItem? BuildAffectedItem(

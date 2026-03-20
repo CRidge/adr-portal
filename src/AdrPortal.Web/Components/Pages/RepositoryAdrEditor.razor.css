@@ -169,6 +169,16 @@
     background-color: #bfdbfe;
 }
 
+.adr-editor__button--manual {
+    border-color: #d1d5db;
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.adr-editor__button--manual:hover:not(:disabled) {
+    background-color: #e5e7eb;
+}
+
 .adr-editor-ai {
     border: 1px solid var(--app-border);
     border-radius: 0.7rem;
@@ -186,6 +196,12 @@
 
 .adr-editor-ai p {
     margin: 0;
+}
+
+.adr-editor-ai__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .adr-editor-ai__fit {
@@ -211,6 +227,41 @@
     margin: 0.2rem 0 0 0;
     color: var(--app-muted);
     font-size: 0.86rem;
+}
+
+.adr-editor-ai__option-summary {
+    color: var(--app-text) !important;
+    font-size: 0.87rem !important;
+}
+
+.adr-editor-ai__sublist {
+    margin: 0.2rem 0 0.2rem 1.15rem !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.adr-editor-manual {
+    border: 1px dashed #93c5fd;
+    border-radius: 0.7rem;
+    padding: 0.9rem;
+    background-color: #eff6ff;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.adr-editor-manual h3,
+.adr-editor-manual p,
+.adr-editor-manual ol {
+    margin: 0;
+}
+
+.adr-editor-manual ol {
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
 }
 
 .repo-status {

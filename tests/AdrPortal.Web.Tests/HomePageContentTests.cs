@@ -127,6 +127,9 @@ public class HomePageContentTests
         await Assert.That(editorMarkup.Contains("Raw HTML is not accepted", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("Evaluate & Recommend", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("AI recommendation", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("Insert manual evaluation scaffold", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("Apply recommendation to draft body", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("Manual evaluation path", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]

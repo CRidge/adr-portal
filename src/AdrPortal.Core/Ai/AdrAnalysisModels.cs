@@ -62,7 +62,17 @@ public sealed record AdrOptionRecommendation
     public required string Rationale { get; init; }
 
     /// <summary>
-    /// Gets trade-offs associated with this option.
+    /// Gets explicit advantages for this option.
+    /// </summary>
+    public IReadOnlyList<string> Pros { get; init; } = [];
+
+    /// <summary>
+    /// Gets explicit drawbacks for this option.
+    /// </summary>
+    public IReadOnlyList<string> Cons { get; init; } = [];
+
+    /// <summary>
+    /// Gets legacy trade-off statements associated with this option.
     /// </summary>
     public IReadOnlyList<string> TradeOffs { get; init; } = [];
 }
