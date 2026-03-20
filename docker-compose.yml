@@ -1,0 +1,26 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: adrportal-web:latest
+    container_name: adrportal-web
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__AdrPortal: "Data Source=/app/data/adrportal.db"
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      COPILOT_TOKEN: "${COPILOT_TOKEN:-}"
+    ports:
+      - "8080:8080"
+    volumes:
+      - adrportal-data:/app/data
+      - ./repos:/repos
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  adrportal-data:

@@ -69,3 +69,22 @@ Chosen option: ".NET Aspire 13.1.3", because it provides a coordinated AppHost w
 
 * [ADR-0007: SQLite with EF Core](adr-0007-sqlite-ef-core-persistence.md)
 * [.NET Aspire documentation](https://learn.microsoft.com/en-us/dotnet/aspire/)
+
+## Container Run Instructions (Phase 14)
+
+For production-like local execution without AppHost, use Docker Compose from the repository root:
+
+1. Build and start:
+   * `docker compose up --build -d`
+2. Open the portal:
+   * `http://localhost:8080`
+3. Stop:
+   * `docker compose down`
+
+Persistence and runtime notes:
+
+* SQLite data is persisted in the named volume `adrportal-data` (`/app/data/adrportal.db` in the container).
+* Repository working folders are mounted from `./repos` on the host to `/repos` in the container.
+* Optional integration tokens can be injected via environment variables before `docker compose up`:
+  * `GITHUB_TOKEN`
+  * `COPILOT_TOKEN`
