@@ -250,6 +250,29 @@
     font-size: 0.85rem;
 }
 
+.adr-detail__sync-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0 0 0.55rem 0;
+}
+
+.adr-detail__sync-link {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    padding: 0.45rem 0.7rem;
+    color: var(--app-text);
+    text-decoration: none;
+    background-color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.adr-detail__sync-link:hover {
+    background-color: #f3f4f6;
+}
+
 .adr-detail__affected {
     border: 1px solid var(--app-border);
     border-radius: var(--app-radius-md);

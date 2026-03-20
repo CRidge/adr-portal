@@ -14,7 +14,10 @@
     <section class="panel adr-page">
         <h1>ADR library</h1>
         <p class="repo-status repo-status--error">@loadError</p>
-        <a class="inline-link" href="/settings/repos">Manage repositories</a>
+        <div class="adr-page__actions">
+            <a class="adr-page__settings-link" href="/settings/repos">Manage repositories</a>
+            <a class="adr-page__settings-link" href="/global">Open global library</a>
+        </div>
     </section>
 }
 else if (repository is null)
@@ -36,6 +39,7 @@ else
             <div class="adr-page__actions">
                 <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}/adr/new")">+ New ADR</a>
                 <a class="adr-page__settings-link" href="/settings/repos">Manage repositories</a>
+                <a class="adr-page__settings-link" href="/global">Global library</a>
             </div>
         </header>
 

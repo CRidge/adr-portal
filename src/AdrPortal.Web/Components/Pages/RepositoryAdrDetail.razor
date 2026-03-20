@@ -15,7 +15,11 @@
     <section class="panel adr-page">
         <h1>ADR detail</h1>
         <p class="repo-status repo-status--error">@loadError</p>
-        <a class="inline-link" href="@($"/repos/{RepositoryId}")">Return to ADR list</a>
+        <p class="shell__hint">Review template proposals through the global library.</p>
+        <div class="adr-page__actions">
+            <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}")">Return to ADR list</a>
+            <a class="adr-page__settings-link" href="/global">Open global library</a>
+        </div>
     </section>
 }
 else if (repository is null || detail is null)
@@ -36,6 +40,7 @@ else
             </div>
             <div class="adr-page__actions">
                 <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}/adr/{detail.Number}/edit")">Edit ADR</a>
+                <a class="adr-page__settings-link" href="/global">Global library</a>
                 <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}")">Back to list</a>
             </div>
         </header>
@@ -162,6 +167,14 @@ else
                     <li>Library → repos: open <a class="inline-link" href="@($"/global/{syncStatus.GlobalId}")">global detail</a> to apply or customise updates.</li>
                     <li>Run <strong>Find Affected ADRs</strong> after major changes to discover related decisions.</li>
                 </ul>
+                <div class="adr-detail__sync-links">
+                    <a class="adr-detail__sync-link" href="@($"/global/{syncStatus.GlobalId}#repo-library-proposals")">
+                        Open Repo → library proposals
+                    </a>
+                    <a class="adr-detail__sync-link" href="@($"/global/{syncStatus.GlobalId}")">
+                        Open global ADR detail
+                    </a>
+                </div>
                 @if (!string.IsNullOrWhiteSpace(syncMessage))
                 {
                     <p class="@(syncIsError ? "repo-status repo-status--error" : "repo-status")">@syncMessage</p>
@@ -189,6 +202,23 @@ else
                         <a class="inline-link" href="@($"/global/{syncStatus.GlobalId}")">/global/@syncStatus.GlobalId</a>.
                     </p>
                 }
+            </section>
+        }
+        else
+        {
+            <section class="adr-detail__sync">
+                <h3>Global sync</h3>
+                <p class="adr-detail__sync-summary">
+                    This ADR is not linked to a global template yet.
+                </p>
+                <div class="adr-detail__sync-links">
+                    <a class="adr-detail__sync-link" href="/global">
+                        Open global ADR library
+                    </a>
+                </div>
+                <p class="shell__hint">
+                    Open a global ADR and review repository proposals under <strong>Repo → library proposals</strong>.
+                </p>
             </section>
         }
 
@@ -305,7 +335,7 @@ else
             detail = AdrListViewService.BuildDetail(result.Value.Adr, AdrMarkdownRenderer.Render(result.Value.Adr.RawMarkdown));
             supersedeTargetNumber = detail.SupersededByNumber;
             syncStatus = await GlobalLibraryService.GetRepositoryAdrSyncStatusAsync(RepositoryId, result.Value.Adr, CancellationToken.None);
-            await LoadAffectedAdrsAnalysisAsync();
+            _ = InvokeAsync(LoadAffectedAdrsAnalysisAsync);
         }
         catch (InvalidOperationException exception)
         {
@@ -517,6 +547,7 @@ else
         finally
         {
             isAnalyzingAffectedAdrs = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
