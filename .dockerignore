@@ -1,0 +1,16 @@
+.git
+.github
+.vscode
+.aspire
+.copilot
+TestResults
+**/bin
+**/obj
+**/.DS_Store
+**/*.user
+**/*.suo
+**/*.db
+**/*.db-journal
+**/*.db-shm
+**/*.db-wal
+*.png
