@@ -28,6 +28,18 @@
     background-color: var(--app-surface-muted);
 }
 
+.repo-settings__readonly-value {
+    margin: 0;
+    border: 1px solid var(--app-border);
+    border-radius: 0.55rem;
+    padding: 0.55rem 0.65rem;
+    color: var(--app-text);
+    background-color: var(--app-surface-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+}
+
 .repo-settings__label {
     font-size: 0.9rem;
     font-weight: 600;
