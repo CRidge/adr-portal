@@ -283,12 +283,14 @@ public class GlobalLibraryServiceTests
 
         var managedStore = new FakeManagedRepositoryStore([repository]);
         var fileRepository = new FakeAdrFileRepository(adrs);
-        var service = CreateService(globalStore, managedStore, fileRepository);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var service = new GlobalLibraryService(globalStore, managedStore, factory);
 
         var reconciledCount = await service.ReconcileRepoAsync(repository.Id, CancellationToken.None);
 
         await Assert.That(reconciledCount).IsEqualTo(2);
         await Assert.That(fileRepository.GetAllCallCount).IsEqualTo(1);
+        await Assert.That(factory.CreateCallCount).IsEqualTo(1);
 
         var firstInstance = globalStore.Instances.Single(instance => instance.LocalAdrNumber == 1);
         await Assert.That(firstInstance.BaseTemplateVersion).IsEqualTo(1);
@@ -734,6 +736,7 @@ public class GlobalLibraryServiceTests
             DisplayName = displayName,
             RootPath = $@"C:\repos\{displayName.Replace('/', '-')}",
             AdrFolder = "docs/adr",
+            InboxFolder = "docs/inbox",
             GitRemoteUrl = $"https://github.com/{displayName}.git",
             IsActive = true
         };
@@ -800,10 +803,14 @@ public class GlobalLibraryServiceTests
 
     private sealed class FakeMadrRepositoryFactory(FakeAdrFileRepository repository) : IMadrRepositoryFactory
     {
-        public IAdrFileRepository Create(ManagedRepository managedRepository)
+        public int CreateCallCount { get; private set; }
+
+        public Task<IAdrFileRepository> CreateAsync(ManagedRepository managedRepository, CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(managedRepository);
-            return repository;
+            CreateCallCount++;
+            return Task.FromResult<IAdrFileRepository>(repository);
         }
     }
 

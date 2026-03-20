@@ -26,7 +26,7 @@ public class ManagedRepository
     public string AdrFolder { get; set; } = "docs/adr";
 
     /// <summary>
-    /// Gets or sets the optional inbox folder path used for drop-in ADRs.
+    /// Gets or sets the inbox folder path used for drop-in ADRs.
     /// </summary>
     public string? InboxFolder { get; set; }
 

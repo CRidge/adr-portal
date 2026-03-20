@@ -1,6 +1,7 @@
 using AdrPortal.Core.Entities;
 using AdrPortal.Core.Madr;
 using AdrPortal.Core.Repositories;
+using AdrPortal.Core.Workflows;
 using AdrPortal.Infrastructure.Repositories;
 using AdrPortal.Web.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,13 +20,13 @@ public class InboxImportServiceTests
             var managedStore = new FakeManagedRepositoryStore(repository);
             var madrParser = new MadrParser();
             var madrWriter = new MadrWriter();
-            var factory = new MadrRepositoryFactory(madrParser, madrWriter);
+            var factory = new MadrRepositoryFactory(madrParser, madrWriter, new NoOpGitRepositoryService());
             var importService = new InboxImportService(
                 managedStore,
                 factory,
                 madrParser,
                 NullLogger<InboxImportService>.Instance);
-            var adrRepository = factory.Create(repository);
+            var adrRepository = await factory.CreateAsync(repository, CancellationToken.None);
 
             _ = await adrRepository.WriteAsync(
                 new Adr
@@ -87,7 +88,7 @@ public class InboxImportServiceTests
             var managedStore = new FakeManagedRepositoryStore(repository);
             var madrParser = new MadrParser();
             var madrWriter = new MadrWriter();
-            var factory = new MadrRepositoryFactory(madrParser, madrWriter);
+            var factory = new MadrRepositoryFactory(madrParser, madrWriter, new NoOpGitRepositoryService());
             var importService = new InboxImportService(
                 managedStore,
                 factory,
@@ -125,7 +126,7 @@ public class InboxImportServiceTests
             var managedStore = new FakeManagedRepositoryStore(repository);
             var madrParser = new MadrParser();
             var madrWriter = new MadrWriter();
-            var factory = new MadrRepositoryFactory(madrParser, madrWriter);
+            var factory = new MadrRepositoryFactory(madrParser, madrWriter, new NoOpGitRepositoryService());
             var importService = new InboxImportService(
                 managedStore,
                 factory,
@@ -220,6 +221,30 @@ public class InboxImportServiceTests
         {
             ct.ThrowIfCancellationRequested();
             return Task.FromResult(true);
+        }
+    }
+
+    private sealed class NoOpGitRepositoryService : IGitRepositoryService
+    {
+        public Task EnsureRepositoryReadyAsync(ManagedRepository repository, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            Directory.CreateDirectory(repository.RootPath);
+            return Task.CompletedTask;
+        }
+
+        public Task<string> CommitAdrChangeAsync(
+            string repositoryRootPath,
+            string repoRelativeFilePath,
+            string baseBranchName,
+            string branchName,
+            string commitMessage,
+            string? gitUserName,
+            string? gitPassword,
+            CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult("noop");
         }
     }
 }

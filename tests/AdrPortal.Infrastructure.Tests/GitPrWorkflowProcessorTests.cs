@@ -1,3 +1,4 @@
+using AdrPortal.Core.Entities;
 using AdrPortal.Core.Workflows;
 using AdrPortal.Infrastructure.Workflows;
 using Microsoft.Extensions.Options;
@@ -303,6 +304,15 @@ public class GitPrWorkflowProcessorTests
     {
         public int CommitCallCount { get; private set; }
         public string NextCommitSha { get; } = "feedbeef";
+        public int EnsureRepositoryReadyCallCount { get; private set; }
+
+        public Task EnsureRepositoryReadyAsync(ManagedRepository repository, CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(repository);
+            ct.ThrowIfCancellationRequested();
+            EnsureRepositoryReadyCallCount++;
+            return Task.CompletedTask;
+        }
 
         public Task<string> CommitAdrChangeAsync(
             string repositoryRootPath,

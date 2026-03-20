@@ -1,3 +1,5 @@
+using AdrPortal.Core.Entities;
+
 namespace AdrPortal.Core.Workflows;
 
 /// <summary>
@@ -5,6 +7,16 @@ namespace AdrPortal.Core.Workflows;
 /// </summary>
 public interface IGitRepositoryService
 {
+    /// <summary>
+    /// Ensures a managed repository exists at its configured root path and is refreshed from origin.
+    /// </summary>
+    /// <param name="repository">Managed repository configuration.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>An asynchronous operation.</returns>
+    Task EnsureRepositoryReadyAsync(
+        ManagedRepository repository,
+        CancellationToken ct);
+
     /// <summary>
     /// Stages an ADR file, creates a commit on the target branch, and pushes the branch to origin.
     /// </summary>

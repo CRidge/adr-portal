@@ -82,6 +82,7 @@ Need to align hosting and telemetry decisions.
         await Assert.That(result.Options.All(option => option.Pros.Count > 0)).IsTrue();
         await Assert.That(result.Options.All(option => option.Cons.Count > 0)).IsTrue();
         await Assert.That(aiService.EvaluateCallCount).IsEqualTo(1);
+        await Assert.That(factory.CreateCallCount).IsEqualTo(1);
         await Assert.That(aiService.LastEvaluationDraft).IsNotNull();
         await Assert.That(aiService.LastEvaluationDraft!.DecisionDrivers.Count).IsEqualTo(2);
         await Assert.That(aiService.LastEvaluationDraft.ConsideredOptions.Count).IsEqualTo(2);
@@ -227,6 +228,7 @@ Need deterministic orchestration.
             DisplayName = $"repo-{id}",
             RootPath = $@"C:\repos\contoso\repo-{id}",
             AdrFolder = "docs/adr",
+            InboxFolder = "docs/inbox",
             GitRemoteUrl = $"https://github.com/contoso/repo-{id}.git",
             IsActive = true
         };
@@ -303,10 +305,14 @@ Need deterministic orchestration.
 
     private sealed class FakeMadrRepositoryFactory(FakeAdrFileRepository repository) : IMadrRepositoryFactory
     {
-        public IAdrFileRepository Create(ManagedRepository managedRepository)
+        public int CreateCallCount { get; private set; }
+
+        public Task<IAdrFileRepository> CreateAsync(ManagedRepository managedRepository, CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(managedRepository);
-            return repository;
+            CreateCallCount++;
+            return Task.FromResult<IAdrFileRepository>(repository);
         }
     }
 

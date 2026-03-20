@@ -98,6 +98,8 @@ public class RepositoryComparisonServiceTests
         await Assert.That(result.RankedSourceAdrs[0].TargetMatches[0].TargetAdrNumber).IsEqualTo(10);
         await Assert.That(result.RankedSourceAdrs[0].TargetMatches[0].ImpactLevel).IsEqualTo(AdrImpactLevel.High);
         await Assert.That(aiService.FindAffectedCalls.Count).IsEqualTo(2);
+        await Assert.That(factory.CreateCallCount).IsEqualTo(2);
+        await Assert.That(factory.RequestedRepositoryIds.SequenceEqual([sourceRepository.Id, targetRepository.Id])).IsTrue();
     }
 
     [Test]
@@ -257,6 +259,8 @@ public class RepositoryComparisonServiceTests
             DisplayName = $"repo-{id}",
             RootPath = rootPath,
             AdrFolder = "docs/adr",
+            InboxFolder = "docs/inbox",
+            GitRemoteUrl = $"https://github.com/contoso/repo-{id}.git",
             IsActive = true
         };
     }
@@ -348,14 +352,20 @@ public class RepositoryComparisonServiceTests
 
     private sealed class FakeMadrRepositoryFactory(IReadOnlyDictionary<int, InMemoryAdrFileRepository> repositoriesById) : IMadrRepositoryFactory
     {
-        public IAdrFileRepository Create(ManagedRepository repository)
+        public int CreateCallCount { get; private set; }
+        public List<int> RequestedRepositoryIds { get; } = [];
+
+        public Task<IAdrFileRepository> CreateAsync(ManagedRepository repository, CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+            CreateCallCount++;
+            RequestedRepositoryIds.Add(repository.Id);
             if (!repositoriesById.TryGetValue(repository.Id, out var adrRepository))
             {
                 throw new InvalidOperationException($"No ADR repository configured for repository '{repository.Id}'.");
             }
 
-            return adrRepository;
+            return Task.FromResult<IAdrFileRepository>(adrRepository);
         }
 
         public InMemoryAdrFileRepository GetRepository(int repositoryId)

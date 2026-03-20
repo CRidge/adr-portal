@@ -61,7 +61,7 @@ public class ManagedRepositoryStoreTests
         await Assert.That(saved.DisplayName).IsEqualTo("contoso/adr-portal");
         await Assert.That(saved.RootPath).IsEqualTo(Path.Combine(ManagedRepositoryDefaults.DefaultRepositoriesRootPath, "contoso", "adr-portal"));
         await Assert.That(saved.AdrFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultAdrFolder);
-        await Assert.That(saved.InboxFolder).IsNull();
+        await Assert.That(saved.InboxFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultInboxFolder);
         await Assert.That(all.Count).IsEqualTo(1);
         await Assert.That(all[0].DisplayName).IsEqualTo("contoso/adr-portal");
     }

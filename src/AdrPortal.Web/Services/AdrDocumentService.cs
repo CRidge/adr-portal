@@ -254,7 +254,7 @@ public sealed class AdrDocumentService(
             return null;
         }
 
-        var adrRepository = madrRepositoryFactory.Create(repository);
+        var adrRepository = await madrRepositoryFactory.CreateAsync(repository, ct);
         return (repository, adrRepository);
     }
 

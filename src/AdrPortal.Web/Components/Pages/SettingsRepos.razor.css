@@ -30,6 +30,11 @@
     color: var(--app-text);
 }
 
+.repo-settings__hint {
+    font-size: 0.82rem;
+    color: var(--app-muted);
+}
+
 .repo-settings__input {
     border: 1px solid var(--app-border);
     border-radius: 0.55rem;

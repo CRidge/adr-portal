@@ -31,6 +31,7 @@ public class AdrDocumentServiceTests
         await Assert.That(result.Value.Adrs.Count).IsEqualTo(2);
         await Assert.That(result.Value.Adrs[0].Number).IsEqualTo(1);
         await Assert.That(factory.LastRepositoryId).IsEqualTo(42);
+        await Assert.That(factory.CreateCallCount).IsEqualTo(1);
         await Assert.That(fileRepository.GetAllCallCount).IsEqualTo(1);
     }
 
@@ -726,6 +727,7 @@ Updated decision details.
             DisplayName = "contoso/adr-portal",
             RootPath = @"C:\repos\contoso\adr-portal",
             AdrFolder = "docs/adr",
+            InboxFolder = "docs/inbox",
             GitRemoteUrl = "https://github.com/contoso/adr-portal.git",
             IsActive = true
         };
@@ -828,11 +830,14 @@ Updated decision details.
     private sealed class FakeMadrRepositoryFactory(FakeAdrFileRepository repository) : IMadrRepositoryFactory
     {
         public int? LastRepositoryId { get; private set; }
+        public int CreateCallCount { get; private set; }
 
-        public IAdrFileRepository Create(ManagedRepository managedRepository)
+        public Task<IAdrFileRepository> CreateAsync(ManagedRepository managedRepository, CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+            CreateCallCount++;
             LastRepositoryId = managedRepository.Id;
-            return repository;
+            return Task.FromResult<IAdrFileRepository>(repository);
         }
     }
 

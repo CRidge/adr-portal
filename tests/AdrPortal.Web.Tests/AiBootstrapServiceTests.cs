@@ -103,6 +103,26 @@ public class AiBootstrapServiceTests
     }
 
     [Test]
+    public async Task GenerateProposalSetAsync_EnsuresRepositoryCheckoutBeforeScanning()
+    {
+        var repository = CreateRepository(109, @"C:\repos\contoso\checkout-before-scan");
+        var proposalSet = CreateProposalSet(repository.RootPath, [
+            CreateProposal("p1", "Use Aspire", "use-aspire")
+        ]);
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var fileRepository = new FakeAdrFileRepository([]);
+        var factory = new FakeMadrRepositoryFactory(fileRepository);
+        var aiService = new FakeAiService(proposalSet);
+        var queue = new RecordingQueue();
+        var service = new AiBootstrapService(managedStore, factory, aiService, queue);
+
+        _ = await service.GenerateProposalSetAsync(repository.Id, CancellationToken.None);
+
+        await Assert.That(factory.CreateCallCount).IsEqualTo(1);
+        await Assert.That(factory.LastCreateRepositoryId).IsEqualTo(repository.Id);
+    }
+
+    [Test]
     public async Task AcceptSelectedProposalsAsync_ThrowsWhenGitRemoteUrlMissing()
     {
         var repository = CreateRepository(106, @"C:\repos\contoso\missing-remote");
@@ -220,6 +240,7 @@ public class AiBootstrapServiceTests
             DisplayName = $"repo-{id}",
             RootPath = rootPath,
             AdrFolder = "docs/adr",
+            InboxFolder = "docs/inbox",
             GitRemoteUrl = $"https://github.com/contoso/repo-{id}.git",
             IsActive = true
         };
@@ -324,10 +345,16 @@ public class AiBootstrapServiceTests
 
     private sealed class FakeMadrRepositoryFactory(FakeAdrFileRepository repository) : IMadrRepositoryFactory
     {
-        public IAdrFileRepository Create(ManagedRepository managedRepository)
+        public int CreateCallCount { get; private set; }
+        public int? LastCreateRepositoryId { get; private set; }
+
+        public Task<IAdrFileRepository> CreateAsync(ManagedRepository managedRepository, CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(managedRepository);
-            return repository;
+            CreateCallCount++;
+            LastCreateRepositoryId = managedRepository.Id;
+            return Task.FromResult<IAdrFileRepository>(repository);
         }
     }
 

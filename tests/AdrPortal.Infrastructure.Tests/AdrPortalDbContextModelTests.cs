@@ -66,6 +66,8 @@ public class AdrPortalDbContextModelTests
             DisplayName = "Repo A",
             RootPath = @"C:\repos\a",
             AdrFolder = "docs/adr",
+            InboxFolder = "docs/inbox",
+            GitRemoteUrl = "https://github.com/contoso/a.git",
             CreatedAtUtc = DateTime.UtcNow,
             UpdatedAtUtc = DateTime.UtcNow
         };

@@ -17,6 +17,8 @@ public class RepositoryCatalogStateTests
                 DisplayName = "contoso/repo-a",
                 RootPath = @"C:\repos\contoso-repo-a",
                 AdrFolder = "docs/adr",
+                InboxFolder = "docs/inbox",
+                GitRemoteUrl = "https://github.com/contoso/repo-a.git",
                 IsActive = true
             },
             new ManagedRepository
@@ -25,6 +27,8 @@ public class RepositoryCatalogStateTests
                 DisplayName = "contoso/repo-b",
                 RootPath = @"C:\repos\contoso-repo-b",
                 AdrFolder = "docs/adr",
+                InboxFolder = "docs/inbox",
+                GitRemoteUrl = "https://github.com/contoso/repo-b.git",
                 IsActive = true
             }
         };

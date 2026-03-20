@@ -72,7 +72,8 @@ public class RepositoryInboxUploadServiceTests
             DisplayName = $"repo-{id}",
             RootPath = $@"C:\repos\repo-{id}",
             AdrFolder = "docs/adr",
-            InboxFolder = "inbox",
+            InboxFolder = "docs/inbox",
+            GitRemoteUrl = $"https://github.com/contoso/repo-{id}.git",
             IsActive = true
         };
     }

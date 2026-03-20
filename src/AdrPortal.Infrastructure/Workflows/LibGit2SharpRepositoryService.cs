@@ -1,3 +1,4 @@
+using AdrPortal.Core.Entities;
 using AdrPortal.Core.Workflows;
 using LibGit2Sharp;
 using Microsoft.Extensions.Options;
@@ -9,6 +10,101 @@ namespace AdrPortal.Infrastructure.Workflows;
 /// </summary>
 public sealed class LibGit2SharpRepositoryService(IOptions<GitHubOptions> options) : IGitRepositoryService
 {
+    /// <inheritdoc />
+    public Task EnsureRepositoryReadyAsync(ManagedRepository repository, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ct.ThrowIfCancellationRequested();
+
+        EnsureRequired(repository.RootPath, nameof(repository.RootPath));
+        EnsureRequired(repository.GitRemoteUrl ?? string.Empty, nameof(repository.GitRemoteUrl));
+
+        var normalizedRoot = Path.GetFullPath(repository.RootPath);
+        var normalizedRemoteUrl = repository.GitRemoteUrl!.Trim();
+        Directory.CreateDirectory(normalizedRoot);
+
+        if (!Repository.IsValid(normalizedRoot))
+        {
+            PrepareCloneDestination(normalizedRoot);
+            try
+            {
+                _ = Repository.Clone(normalizedRemoteUrl, normalizedRoot);
+                return Task.CompletedTask;
+            }
+            catch (LibGit2SharpException exception)
+            {
+                throw new GitPrWorkflowException(
+                    $"Failed to clone repository '{normalizedRemoteUrl}' into '{normalizedRoot}': {exception.Message}",
+                    exception);
+            }
+        }
+
+        try
+        {
+            using var gitRepository = new Repository(normalizedRoot);
+            var remote = gitRepository.Network.Remotes["origin"];
+            if (remote is null)
+            {
+                throw new GitPrWorkflowException($"Repository '{normalizedRoot}' does not have an 'origin' remote configured.");
+            }
+
+            if (!string.Equals(remote.Url, normalizedRemoteUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                gitRepository.Network.Remotes.Update("origin", updater => updater.Url = normalizedRemoteUrl);
+            }
+
+            var fetchOptions = new FetchOptions();
+            Commands.Fetch(gitRepository, "origin", Array.Empty<string>(), fetchOptions, logMessage: null);
+        }
+        catch (RepositoryNotFoundException exception)
+        {
+            throw new GitPrWorkflowException(
+                $"Path '{normalizedRoot}' is not a Git repository.", exception);
+        }
+        catch (LibGit2SharpException exception)
+        {
+            throw new GitPrWorkflowException(
+                $"Failed to refresh repository '{normalizedRoot}' from '{normalizedRemoteUrl}': {exception.Message}",
+                exception);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static void PrepareCloneDestination(string repositoryRootPath)
+    {
+        var entries = Directory.EnumerateFileSystemEntries(repositoryRootPath).ToArray();
+        if (entries.Length is 0)
+        {
+            return;
+        }
+
+        var containsFiles = Directory.EnumerateFiles(repositoryRootPath, "*", SearchOption.AllDirectories).Any();
+        if (containsFiles)
+        {
+            throw new GitPrWorkflowException(
+                $"Managed repository root '{repositoryRootPath}' is not a Git repository and contains files. Remove or relocate the files before retrying.");
+        }
+
+        try
+        {
+            Directory.Delete(repositoryRootPath, recursive: true);
+            Directory.CreateDirectory(repositoryRootPath);
+        }
+        catch (IOException exception)
+        {
+            throw new GitPrWorkflowException(
+                $"Managed repository root '{repositoryRootPath}' could not be prepared for clone because directory cleanup failed.",
+                exception);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            throw new GitPrWorkflowException(
+                $"Managed repository root '{repositoryRootPath}' could not be prepared for clone due to access restrictions.",
+                exception);
+        }
+    }
+
     /// <inheritdoc />
     public Task<string> CommitAdrChangeAsync(
         string repositoryRootPath,

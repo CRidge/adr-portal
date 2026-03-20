@@ -148,6 +148,8 @@ public class GlobalAdrStoreTests
             DisplayName = "Repo One",
             RootPath = @"C:\repos\one",
             AdrFolder = "docs/adr",
+            InboxFolder = "docs/inbox",
+            GitRemoteUrl = "https://github.com/contoso/one.git",
             IsActive = true,
             CreatedAtUtc = new DateTime(2026, 3, 19, 0, 0, 0, DateTimeKind.Utc),
             UpdatedAtUtc = new DateTime(2026, 3, 19, 0, 0, 0, DateTimeKind.Utc)

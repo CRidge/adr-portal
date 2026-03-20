@@ -39,4 +39,13 @@ public class ManagedRepositoryEntityTests
         await Assert.That(repository.InboxFolder).IsNull();
         await Assert.That(repository.GitRemoteUrl).IsNull();
     }
+
+    [Test]
+    public async Task ManagedRepositoryDefaults_AppliesFixedAdrAndInboxFolders()
+    {
+        var repository = ManagedRepositoryDefaults.CreateForAdd("https://github.com/contoso/portal.git");
+
+        await Assert.That(repository.AdrFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultAdrFolder);
+        await Assert.That(repository.InboxFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultInboxFolder);
+    }
 }

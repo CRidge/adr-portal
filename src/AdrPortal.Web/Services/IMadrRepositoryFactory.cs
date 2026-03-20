@@ -9,9 +9,10 @@ namespace AdrPortal.Web.Services;
 public interface IMadrRepositoryFactory
 {
     /// <summary>
-    /// Creates a file-backed ADR repository for the provided managed repository.
+    /// Ensures repository checkout state and creates a file-backed ADR repository for the provided managed repository.
     /// </summary>
     /// <param name="repository">Managed repository settings.</param>
+    /// <param name="ct">Cancellation token for checkout and repository initialization.</param>
     /// <returns>A configured file-backed ADR repository.</returns>
-    IAdrFileRepository Create(ManagedRepository repository);
+    Task<IAdrFileRepository> CreateAsync(ManagedRepository repository, CancellationToken ct);
 }

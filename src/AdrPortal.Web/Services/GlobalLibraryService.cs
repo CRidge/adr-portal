@@ -170,7 +170,7 @@ public sealed class GlobalLibraryService(
             throw new InvalidOperationException($"Repository '{repositoryId}' was not found.");
         }
 
-        var adrRepository = madrRepositoryFactory.Create(repository);
+        var adrRepository = await madrRepositoryFactory.CreateAsync(repository, ct);
         var adrs = await adrRepository.GetAllAsync(ct);
         var reconciledCount = 0;
         foreach (var adr in adrs.Where(adr => adr.GlobalId is not null && adr.GlobalVersion is not null))
@@ -454,7 +454,7 @@ public sealed class GlobalLibraryService(
 
         var repository = await managedRepositoryStore.GetByIdAsync(instance.RepositoryId, ct)
             ?? throw new InvalidOperationException($"Repository '{instance.RepositoryId}' was not found.");
-        var repositoryAdrStore = madrRepositoryFactory.Create(repository);
+        var repositoryAdrStore = await madrRepositoryFactory.CreateAsync(repository, ct);
         var adr = await repositoryAdrStore.GetByNumberAsync(instance.LocalAdrNumber, ct)
             ?? throw new InvalidOperationException(
                 $"ADR-{instance.LocalAdrNumber:0000} was not found in repository '{repository.DisplayName}'.");
