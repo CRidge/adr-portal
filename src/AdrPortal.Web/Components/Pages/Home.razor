@@ -4,12 +4,12 @@
 <PageTitle>ADR Portal</PageTitle>
 
 <section class="panel">
-    <p class="eyebrow">Phase 13</p>
-    <h1>Source-to-target ADR comparison and import workflows are active</h1>
+    <p class="eyebrow">Workspace overview</p>
+    <h1>Architecture decision workflow and template sync</h1>
     <p class="lead">
         Configure repositories under <a class="inline-link" href="/settings/repos">Settings → Repositories</a>,
-        compare catalogs under <a class="inline-link" href="/compare">/compare</a>, and review
-        <a class="inline-link" href="/global">Global ADR library</a> mappings.
+        author and review ADRs in each repository, and coordinate shared templates through the
+        <a class="inline-link" href="/global">Global ADR library</a>.
     </p>
     <dl class="status-grid">
         <div>
@@ -34,7 +34,8 @@
         </div>
     </dl>
     <p class="lead">
-        Next actions: open <a class="inline-link" href="/compare">/compare</a> to select source and target repositories,
-        rank source ADR relevance against the target catalog, select import rows, and create proposed ADR drafts.
+        Suggested flow: draft or update an ADR, run in-editor AI evaluation to compare options,
+        then open <a class="inline-link" href="/compare">/compare</a> to import related ADRs across repositories.
+        Use <a class="inline-link" href="/global">/global</a> to review library proposals and apply template updates to instances.
     </p>
 </section>

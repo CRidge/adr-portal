@@ -124,7 +124,7 @@ else
             <fieldset class="adr-editor__fieldset">
                 <legend class="adr-editor__legend">MADR markdown body</legend>
                 <p class="adr-editor__hint">
-                    Provide markdown only. Raw HTML is not accepted for safety.
+                    Provide markdown only. Raw HTML is not accepted for safety. Include context, decision drivers, options, and consequences.
                 </p>
                 <InputTextArea id="adr-markdown-body"
                                class="adr-editor__textarea adr-editor__textarea--body"
@@ -143,9 +143,12 @@ else
                         class="adr-editor__button adr-editor__button--analysis"
                         @onclick="EvaluateAndRecommendAsync"
                         disabled="@(isSaving || isEvaluatingRecommendation || editContext is null)">
-                    @(isEvaluatingRecommendation ? "Evaluating..." : "Evaluate & Recommend")
+                    @(isEvaluatingRecommendation ? "Evaluating..." : "Evaluate ADR draft")
                 </button>
             </div>
+            <p class="adr-editor__hint">
+                Tip: run AI evaluation after writing options/pros/cons, then save and use ADR detail to manage lifecycle and global sync.
+            </p>
         </EditForm>
 
         @if (!string.IsNullOrWhiteSpace(recommendationMessage))

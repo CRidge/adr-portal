@@ -157,6 +157,11 @@ else
                 <p class="adr-detail__sync-summary">
                     Base template v@syncStatus.BaseTemplateVersion · Current global v@syncStatus.CurrentGlobalVersion
                 </p>
+                <ul class="adr-detail__sync-steps">
+                    <li>Repo → library: use <strong>Propose library update</strong> when this ADR has template improvements.</li>
+                    <li>Library → repos: open <a class="inline-link" href="@($"/global/{syncStatus.GlobalId}")">global detail</a> to apply or customise updates.</li>
+                    <li>Run <strong>Find Affected ADRs</strong> after major changes to discover related decisions.</li>
+                </ul>
                 @if (!string.IsNullOrWhiteSpace(syncMessage))
                 {
                     <p class="@(syncIsError ? "repo-status repo-status--error" : "repo-status")">@syncMessage</p>

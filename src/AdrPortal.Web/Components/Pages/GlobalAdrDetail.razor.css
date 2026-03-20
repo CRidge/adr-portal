@@ -69,6 +69,15 @@
     color: var(--app-muted);
 }
 
+.global-adr-panel__help {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--app-border);
+    font-size: 0.87rem;
+    color: var(--app-muted);
+    background-color: #fcfdff;
+}
+
 .global-adr-versions {
     margin: 0;
     padding: 0;

@@ -3,7 +3,7 @@ namespace AdrPortal.Web.Tests;
 public class HomePageContentTests
 {
     [Test]
-    public async Task HomePage_IncludesPhaseThirteenSignals()
+    public async Task HomePage_IncludesWorkflowOverviewContent()
     {
         var repositoryRoot = ResolveRepositoryRoot();
         var homePagePath = Path.Combine(repositoryRoot, "src", "AdrPortal.Web", "Components", "Pages", "Home.razor");
@@ -11,11 +11,11 @@ public class HomePageContentTests
 
         var homeMarkup = await File.ReadAllTextAsync(normalizedPath);
 
-        await Assert.That(homeMarkup.Contains("Phase 13", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(homeMarkup.Contains("Source-to-target ADR comparison", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Workspace overview", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(homeMarkup.Contains("Architecture decision workflow and template sync", StringComparison.Ordinal)).IsTrue();
         await Assert.That(homeMarkup.Contains("/compare", StringComparison.Ordinal)).IsTrue();
         await Assert.That(homeMarkup.Contains("/global", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(homeMarkup.Contains("select import rows", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(homeMarkup.Contains("run in-editor AI evaluation", StringComparison.OrdinalIgnoreCase)).IsTrue();
     }
 
     [Test]
@@ -69,9 +69,11 @@ public class HomePageContentTests
         await Assert.That(markup.Contains("shell__repo-list", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("/repos/{repository.Id}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__repo-indicator", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(markup.Contains("Phase 13 source-to-target ADR comparison + import workflows", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Track ADR decisions, run AI analysis, and keep templates in sync.", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__theme-toggle", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("ToggleThemeAsync", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("Workflow actions (coming soon)", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(markup.Contains("Workflow tip", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
@@ -82,10 +84,12 @@ public class HomePageContentTests
         var compareMarkup = await File.ReadAllTextAsync(comparePagePath);
 
         await Assert.That(compareMarkup.Contains("@page \"/compare\"", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(compareMarkup.Contains("Cross-repository workflow", StringComparison.Ordinal)).IsTrue();
         await Assert.That(compareMarkup.Contains("Source repository", StringComparison.Ordinal)).IsTrue();
         await Assert.That(compareMarkup.Contains("Target repository", StringComparison.Ordinal)).IsTrue();
         await Assert.That(compareMarkup.Contains("Compare repositories", StringComparison.Ordinal)).IsTrue();
         await Assert.That(compareMarkup.Contains("Ranked source ADR list", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(compareMarkup.Contains("How this comparison helps", StringComparison.Ordinal)).IsTrue();
         await Assert.That(compareMarkup.Contains("Import selected ADRs as proposed", StringComparison.Ordinal)).IsTrue();
         await Assert.That(compareMarkup.Contains("global-id", StringComparison.Ordinal)).IsTrue();
         await Assert.That(compareMarkup.Contains("global-version", StringComparison.Ordinal)).IsTrue();
@@ -125,8 +129,11 @@ public class HomePageContentTests
         await Assert.That(editorMarkup.Contains("@page \"/repos/{RepositoryId:int}/adr/{Number:int}/edit\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("MADR markdown body", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("Raw HTML is not accepted", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(editorMarkup.Contains("Evaluate & Recommend", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("Evaluate ADR draft", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(editorMarkup.Contains("Tip: run AI evaluation", StringComparison.Ordinal)).IsTrue();
         await Assert.That(editorMarkup.Contains("AI recommendation", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Repo → library", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Library → repos", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
@@ -142,11 +149,13 @@ public class HomePageContentTests
         await Assert.That(overviewMarkup.Contains("Library overview", StringComparison.Ordinal)).IsTrue();
         await Assert.That(overviewMarkup.Contains("Current version", StringComparison.Ordinal)).IsTrue();
         await Assert.That(overviewMarkup.Contains("Update available", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(overviewMarkup.Contains("Sync workflow", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("@page \"/global/{GlobalId:guid}\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Version history", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Baseline diff viewer", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Repo → library proposals", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Library → repos instances", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Review repository-authored template changes here.", StringComparison.Ordinal)).IsTrue();
     }
 
     private static string ResolveRepositoryRoot()

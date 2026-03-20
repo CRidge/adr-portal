@@ -82,6 +82,9 @@ else
             <h2>Repo → library proposals</h2>
             <small>@detail.PendingProposalCount pending</small>
         </header>
+        <p class="global-adr-panel__help">
+            Review repository-authored template changes here. Accept to publish a new global version or discard when the change is repository-specific.
+        </p>
         @if (!string.IsNullOrWhiteSpace(proposalMessage))
         {
             <p class="@(proposalError ? "repo-status repo-status--error" : "repo-status")">@proposalMessage</p>
@@ -140,6 +143,9 @@ else
             <h2>Library → repos instances</h2>
             <small>@detail.UpdateAvailableCount update available</small>
         </header>
+        <p class="global-adr-panel__help">
+            Roll out global template updates to linked repository ADRs. Apply for direct update, customise when local edits are needed, or dismiss to defer.
+        </p>
         @if (!string.IsNullOrWhiteSpace(instanceMessage))
         {
             <p class="@(instanceError ? "repo-status repo-status--error" : "repo-status")">@instanceMessage</p>

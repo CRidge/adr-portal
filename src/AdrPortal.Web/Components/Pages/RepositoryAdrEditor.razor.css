@@ -113,7 +113,7 @@
 }
 
 .adr-editor__textarea--body {
-    min-height: 22rem;
+    min-height: 38rem;
     font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
     font-size: 0.93rem;
     line-height: 1.45;

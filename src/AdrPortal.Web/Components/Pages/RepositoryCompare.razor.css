@@ -10,6 +10,28 @@
     gap: 1rem;
 }
 
+.compare-guidance {
+    border: 1px solid var(--app-border);
+    border-radius: 0.75rem;
+    background-color: var(--app-surface-muted);
+    padding: 0.85rem 0.95rem;
+}
+
+.compare-guidance h2 {
+    margin: 0;
+    font-size: 0.94rem;
+}
+
+.compare-guidance ol {
+    margin: 0.45rem 0 0 1.15rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    color: var(--app-muted);
+    font-size: 0.88rem;
+}
+
 .compare-controls {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
