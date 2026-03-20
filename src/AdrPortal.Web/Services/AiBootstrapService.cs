@@ -36,7 +36,7 @@ public sealed class AiBootstrapService(
             return null;
         }
 
-        var adrRepository = madrRepositoryFactory.Create(repository);
+        var adrRepository = await madrRepositoryFactory.CreateAsync(repository, ct);
         var existingAdrs = await adrRepository.GetAllAsync(ct);
         return new AiBootstrapContext
         {
@@ -115,7 +115,7 @@ public sealed class AiBootstrapService(
             throw new InvalidOperationException("One or more selected proposals could not be resolved.");
         }
 
-        var adrRepository = madrRepositoryFactory.Create(context.Repository);
+        var adrRepository = await madrRepositoryFactory.CreateAsync(context.Repository, ct);
         var existingAdrs = await adrRepository.GetAllAsync(ct);
         var usedSlugs = existingAdrs
             .Select(adr => adr.Slug)

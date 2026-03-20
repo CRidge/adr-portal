@@ -13,26 +13,28 @@ public static partial class ManagedRepositoryDefaults
     public const string DefaultAdrFolder = "docs/adr";
 
     /// <summary>
-    /// The deterministic root directory used when inferring local repository paths.
+    /// The default relative inbox folder used for repository intake files.
     /// </summary>
-    public const string DefaultRepositoriesRootPath = @"C:\repos";
+    public const string DefaultInboxFolder = "docs/inbox";
 
     /// <summary>
-    /// Creates a managed repository for add flow using a required Git remote URL and optional overrides.
+    /// The deterministic root directory used when inferring local repository paths.
+    /// </summary>
+    public static string DefaultRepositoriesRootPath { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AdrPortal",
+        "repositories");
+
+    /// <summary>
+    /// Creates a managed repository for add flow using a required Git remote URL and optional display-name override.
     /// </summary>
     /// <param name="gitRemoteUrl">Git remote URL used as the primary source of defaults.</param>
     /// <param name="displayNameOverride">Optional display name override. When empty, an inferred value is used.</param>
-    /// <param name="rootPathOverride">Optional root path override. When empty, an inferred value is used.</param>
-    /// <param name="adrFolderOverride">Optional ADR folder override. When empty, <c>docs/adr</c> is used.</param>
-    /// <param name="inboxFolderOverride">Optional inbox folder override.</param>
     /// <param name="isActive">Whether the created repository should be active.</param>
     /// <returns>A managed repository populated with inferred defaults and applied overrides.</returns>
     public static ManagedRepository CreateForAdd(
         string gitRemoteUrl,
         string? displayNameOverride = null,
-        string? rootPathOverride = null,
-        string? adrFolderOverride = null,
-        string? inboxFolderOverride = null,
         bool isActive = true)
     {
         var inferredDefaults = InferFromGitRemoteUrl(gitRemoteUrl);
@@ -40,9 +42,9 @@ public static partial class ManagedRepositoryDefaults
         return new ManagedRepository
         {
             DisplayName = ResolveRequiredValue(displayNameOverride, inferredDefaults.DisplayName),
-            RootPath = ResolveRequiredValue(rootPathOverride, inferredDefaults.RootPath),
-            AdrFolder = ResolveRequiredValue(adrFolderOverride, inferredDefaults.AdrFolder),
-            InboxFolder = ResolveOptionalValue(inboxFolderOverride, inferredDefaults.InboxFolder),
+            RootPath = inferredDefaults.RootPath,
+            AdrFolder = DefaultAdrFolder,
+            InboxFolder = DefaultInboxFolder,
             GitRemoteUrl = inferredDefaults.GitRemoteUrl,
             IsActive = isActive
         };
@@ -87,7 +89,7 @@ public static partial class ManagedRepositoryDefaults
             DisplayName: displayName,
             RootPath: inferredRootPath,
             AdrFolder: DefaultAdrFolder,
-            InboxFolder: null);
+            InboxFolder: DefaultInboxFolder);
     }
 
     /// <summary>
@@ -178,17 +180,6 @@ public static partial class ManagedRepositoryDefaults
     /// <param name="defaultValue">Default value used when the override is empty.</param>
     /// <returns>The resolved required value.</returns>
     private static string ResolveRequiredValue(string? overrideValue, string defaultValue)
-    {
-        return string.IsNullOrWhiteSpace(overrideValue) ? defaultValue : overrideValue.Trim();
-    }
-
-    /// <summary>
-    /// Resolves an optional value by applying an override when present or falling back to a default.
-    /// </summary>
-    /// <param name="overrideValue">Optional override value.</param>
-    /// <param name="defaultValue">Default value used when the override is empty.</param>
-    /// <returns>The resolved optional value.</returns>
-    private static string? ResolveOptionalValue(string? overrideValue, string? defaultValue)
     {
         return string.IsNullOrWhiteSpace(overrideValue) ? defaultValue : overrideValue.Trim();
     }

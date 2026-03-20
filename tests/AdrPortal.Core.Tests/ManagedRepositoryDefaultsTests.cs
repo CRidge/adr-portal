@@ -13,7 +13,7 @@ public class ManagedRepositoryDefaultsTests
         await Assert.That(inferred.DisplayName).IsEqualTo("octo/adr-portal");
         await Assert.That(inferred.RootPath).IsEqualTo(Path.Combine(ManagedRepositoryDefaults.DefaultRepositoriesRootPath, "octo", "adr-portal"));
         await Assert.That(inferred.AdrFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultAdrFolder);
-        await Assert.That(inferred.InboxFolder).IsNull();
+        await Assert.That(inferred.InboxFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultInboxFolder);
     }
 
     [Test]
@@ -43,25 +43,22 @@ public class ManagedRepositoryDefaultsTests
         await Assert.That(created.DisplayName).IsEqualTo("fabrikam/decision-records");
         await Assert.That(created.RootPath).IsEqualTo(Path.Combine(ManagedRepositoryDefaults.DefaultRepositoriesRootPath, "fabrikam", "decision-records"));
         await Assert.That(created.AdrFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultAdrFolder);
-        await Assert.That(created.InboxFolder).IsNull();
+        await Assert.That(created.InboxFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultInboxFolder);
         await Assert.That(created.IsActive).IsTrue();
     }
 
     [Test]
-    public async Task CreateForAdd_AppliesManualOverrides()
+    public async Task CreateForAdd_AppliesOptionalDisplayNameAndActiveOverrides()
     {
         var created = ManagedRepositoryDefaults.CreateForAdd(
             gitRemoteUrl: "https://github.com/fabrikam/decision-records.git",
             displayNameOverride: "Portal Repo",
-            rootPathOverride: @"D:\repositories\portal",
-            adrFolderOverride: "architecture/adr",
-            inboxFolderOverride: @"D:\repositories\portal\inbox",
             isActive: false);
 
         await Assert.That(created.DisplayName).IsEqualTo("Portal Repo");
-        await Assert.That(created.RootPath).IsEqualTo(@"D:\repositories\portal");
-        await Assert.That(created.AdrFolder).IsEqualTo("architecture/adr");
-        await Assert.That(created.InboxFolder).IsEqualTo(@"D:\repositories\portal\inbox");
+        await Assert.That(created.RootPath).IsEqualTo(Path.Combine(ManagedRepositoryDefaults.DefaultRepositoriesRootPath, "fabrikam", "decision-records"));
+        await Assert.That(created.AdrFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultAdrFolder);
+        await Assert.That(created.InboxFolder).IsEqualTo(ManagedRepositoryDefaults.DefaultInboxFolder);
         await Assert.That(created.IsActive).IsFalse();
     }
 }

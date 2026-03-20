@@ -37,8 +37,8 @@ public sealed class RepositoryComparisonService(
         var targetRepository = await ResolveRepositoryAsync(targetRepositoryId, ct);
         EnsureDistinctRepositories(sourceRepository, targetRepository);
 
-        var sourceAdrRepository = madrRepositoryFactory.Create(sourceRepository);
-        var targetAdrRepository = madrRepositoryFactory.Create(targetRepository);
+        var sourceAdrRepository = await madrRepositoryFactory.CreateAsync(sourceRepository, ct);
+        var targetAdrRepository = await madrRepositoryFactory.CreateAsync(targetRepository, ct);
         var sourceAdrs = await sourceAdrRepository.GetAllAsync(ct);
         var targetAdrs = await targetAdrRepository.GetAllAsync(ct);
 
@@ -114,8 +114,8 @@ public sealed class RepositoryComparisonService(
         var targetRepository = await ResolveRepositoryAsync(targetRepositoryId, ct);
         EnsureDistinctRepositories(sourceRepository, targetRepository);
 
-        var sourceAdrRepository = madrRepositoryFactory.Create(sourceRepository);
-        var targetAdrRepository = madrRepositoryFactory.Create(targetRepository);
+        var sourceAdrRepository = await madrRepositoryFactory.CreateAsync(sourceRepository, ct);
+        var targetAdrRepository = await madrRepositoryFactory.CreateAsync(targetRepository, ct);
         var sourceAdrs = await sourceAdrRepository.GetAllAsync(ct);
         var sourceByNumber = sourceAdrs.ToDictionary(adr => adr.Number);
 

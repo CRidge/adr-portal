@@ -3,6 +3,8 @@
 @inject RepositoryCatalogState RepositoryCatalogState
 @inject GlobalLibraryService GlobalLibraryService
 @inject IInboxWatcherCoordinator InboxWatcherCoordinator
+@inject IManagedRepositoryCheckoutService ManagedRepositoryCheckoutService
+@using AdrPortal.Core.Workflows
 
 <PageTitle>Repository settings</PageTitle>
 
@@ -10,7 +12,8 @@
     <p class="eyebrow">Settings</p>
     <h1>Managed repositories</h1>
     <p class="lead">
-        Add, edit, and remove repositories used by ADR Portal. Changes are stored in SQLite through EF Core.
+        Add, edit, and remove repositories used by ADR Portal. Provide the Git remote URL and optional display name.
+        ADR Portal manages checkout, ADR, and inbox paths automatically.
     </p>
 
     @if (!string.IsNullOrWhiteSpace(statusMessage))
@@ -32,27 +35,24 @@
             </div>
 
             <div class="repo-settings__field">
-                <label class="repo-settings__label" for="repo-root">Root path</label>
-                <InputText id="repo-root" class="repo-settings__input" @bind-Value="editorModel.RootPath" />
-                <ValidationMessage For="() => editorModel.RootPath" />
-            </div>
-
-            <div class="repo-settings__field">
-                <label class="repo-settings__label" for="repo-adr-folder">ADR folder</label>
-                <InputText id="repo-adr-folder" class="repo-settings__input" @bind-Value="editorModel.AdrFolder" />
-                <ValidationMessage For="() => editorModel.AdrFolder" />
-            </div>
-
-            <div class="repo-settings__field">
-                <label class="repo-settings__label" for="repo-inbox">Inbox folder (optional)</label>
-                <InputText id="repo-inbox" class="repo-settings__input" @bind-Value="editorModel.InboxFolder" />
-                <ValidationMessage For="() => editorModel.InboxFolder" />
-            </div>
-
-            <div class="repo-settings__field">
                 <label class="repo-settings__label" for="repo-remote">Git remote URL</label>
                 <InputText id="repo-remote" class="repo-settings__input" @bind-Value="editorModel.GitRemoteUrl" />
                 <ValidationMessage For="() => editorModel.GitRemoteUrl" />
+            </div>
+
+            <div class="repo-settings__field">
+                <label class="repo-settings__label">Managed checkout path</label>
+                <span class="repo-settings__hint">@GetManagedCheckoutPathPreview()</span>
+            </div>
+
+            <div class="repo-settings__field">
+                <label class="repo-settings__label">Managed ADR folder</label>
+                <span class="repo-settings__hint">/@ManagedRepositoryDefaults.DefaultAdrFolder</span>
+            </div>
+
+            <div class="repo-settings__field">
+                <label class="repo-settings__label">Managed inbox folder</label>
+                <span class="repo-settings__hint">/@ManagedRepositoryDefaults.DefaultInboxFolder</span>
             </div>
 
             <label class="repo-settings__checkbox">
@@ -85,7 +85,7 @@
             <thead>
                 <tr>
                     <th scope="col">Name</th>
-                    <th scope="col">Root path</th>
+                    <th scope="col">Checkout path</th>
                     <th scope="col">ADR folder</th>
                     <th scope="col">Active</th>
                     <th scope="col">Actions</th>
@@ -153,16 +153,21 @@
         {
             if (editingRepositoryId is int repositoryId)
             {
+                var existingRepository = await GetExistingRepositoryAsync(repositoryId);
+                var inferredDefaults = ManagedRepositoryDefaults.InferFromGitRemoteUrl(editorModel.GitRemoteUrl);
+                var displayName = ResolveRequiredInput(editorModel.DisplayName);
                 var updatedRepository = new ManagedRepository
                 {
                     Id = repositoryId,
-                    DisplayName = ResolveRequiredInput(editorModel.DisplayName),
-                    RootPath = ResolveRequiredInput(editorModel.RootPath),
-                    AdrFolder = ResolveRequiredInput(editorModel.AdrFolder),
-                    InboxFolder = NormalizeOptional(editorModel.InboxFolder),
+                    DisplayName = string.IsNullOrWhiteSpace(displayName)
+                        ? inferredDefaults.DisplayName
+                        : displayName,
+                    RootPath = inferredDefaults.RootPath,
+                    AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder,
+                    InboxFolder = ManagedRepositoryDefaults.DefaultInboxFolder,
                     GitRemoteUrl = ResolveRequiredInput(editorModel.GitRemoteUrl),
                     IsActive = editorModel.IsActive,
-                    CreatedAtUtc = DateTime.UtcNow,
+                    CreatedAtUtc = existingRepository.CreatedAtUtc,
                     UpdatedAtUtc = DateTime.UtcNow
                 };
 
@@ -174,6 +179,8 @@
                 }
                 else
                 {
+                    _ = await ManagedRepositoryCheckoutService.RefreshCheckoutAsync(result, CancellationToken.None);
+                    _ = await GlobalLibraryService.ReconcileRepoAsync(result.Id, CancellationToken.None);
                     statusMessage = $"Updated '{result.DisplayName}'.";
                     editingRepositoryId = null;
                     InitializeEditor();
@@ -184,12 +191,10 @@
                 var createdRepository = ManagedRepositoryDefaults.CreateForAdd(
                     gitRemoteUrl: ResolveRequiredInput(editorModel.GitRemoteUrl),
                     displayNameOverride: editorModel.DisplayName,
-                    rootPathOverride: editorModel.RootPath,
-                    adrFolderOverride: editorModel.AdrFolder,
-                    inboxFolderOverride: editorModel.InboxFolder,
                     isActive: editorModel.IsActive);
 
                 var result = await ManagedRepositoryStore.AddAsync(createdRepository, CancellationToken.None);
+                _ = await ManagedRepositoryCheckoutService.EnsureLocalCheckoutAsync(result, CancellationToken.None);
                 _ = await GlobalLibraryService.ReconcileRepoAsync(result.Id, CancellationToken.None);
                 statusMessage = $"Added '{result.DisplayName}'.";
                 InitializeEditor();
@@ -219,6 +224,11 @@
             statusIsError = true;
             statusMessage = exception.Message;
         }
+        catch (UnauthorizedAccessException exception)
+        {
+            statusIsError = true;
+            statusMessage = exception.Message;
+        }
         finally
         {
             isSaving = false;
@@ -237,10 +247,7 @@
         }
 
         editingRepositoryId = repository.Id;
-        editorModel.DisplayName = repository.DisplayName;
-        editorModel.RootPath = repository.RootPath;
-        editorModel.AdrFolder = repository.AdrFolder;
-        editorModel.InboxFolder = repository.InboxFolder;
+        editorModel.DisplayName = ResolveDisplayNameForEditor(repository);
         editorModel.GitRemoteUrl = repository.GitRemoteUrl ?? string.Empty;
         editorModel.IsActive = repository.IsActive;
         editContext = new EditContext(editorModel);
@@ -310,9 +317,6 @@
     private void InitializeEditor()
     {
         editorModel.DisplayName = string.Empty;
-        editorModel.RootPath = string.Empty;
-        editorModel.AdrFolder = ManagedRepositoryDefaults.DefaultAdrFolder;
-        editorModel.InboxFolder = null;
         editorModel.GitRemoteUrl = string.Empty;
         editorModel.IsActive = true;
 
@@ -358,21 +362,6 @@
     }
 
     /// <summary>
-    /// Normalizes optional string inputs to null when empty.
-    /// </summary>
-    /// <param name="value">Input value.</param>
-    /// <returns>Trimmed value or <see langword="null"/>.</returns>
-    private static string? NormalizeOptional(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return value.Trim();
-    }
-
-    /// <summary>
     /// Normalizes required string inputs.
     /// </summary>
     /// <param name="value">Input value.</param>
@@ -380,5 +369,58 @@
     private static string ResolveRequiredInput(string? value)
     {
         return value?.Trim() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Resolves display-name text for edit mode by suppressing deterministic inferred defaults.
+    /// </summary>
+    /// <param name="repository">Repository being edited.</param>
+    /// <returns>User-provided display name when available; otherwise empty text.</returns>
+    private static string ResolveDisplayNameForEditor(ManagedRepository repository)
+    {
+        var gitRemoteUrl = repository.GitRemoteUrl;
+        if (string.IsNullOrWhiteSpace(gitRemoteUrl))
+        {
+            return repository.DisplayName;
+        }
+
+        var inferred = ManagedRepositoryDefaults.InferFromGitRemoteUrl(gitRemoteUrl);
+        return string.Equals(repository.DisplayName, inferred.DisplayName, StringComparison.Ordinal)
+            ? string.Empty
+            : repository.DisplayName;
+    }
+
+    /// <summary>
+    /// Gets checkout path preview text based on the current remote URL input.
+    /// </summary>
+    /// <returns>Managed checkout path preview.</returns>
+    private string GetManagedCheckoutPathPreview()
+    {
+        if (string.IsNullOrWhiteSpace(editorModel.GitRemoteUrl))
+        {
+            return Path.Combine(ManagedRepositoryDefaults.DefaultRepositoriesRootPath, "<owner>", "<repository>");
+        }
+
+        try
+        {
+            var inferred = ManagedRepositoryDefaults.InferFromGitRemoteUrl(editorModel.GitRemoteUrl);
+            return inferred.RootPath;
+        }
+        catch (ArgumentException)
+        {
+            return Path.Combine(ManagedRepositoryDefaults.DefaultRepositoriesRootPath, "<owner>", "<repository>");
+        }
+    }
+
+    /// <summary>
+    /// Loads repository targeted for update.
+    /// </summary>
+    /// <param name="repositoryId">Repository identifier.</param>
+    /// <returns>Repository when found.</returns>
+    private async Task<ManagedRepository> GetExistingRepositoryAsync(int repositoryId)
+    {
+        var existingRepository = await ManagedRepositoryStore.GetByIdAsync(repositoryId, CancellationToken.None);
+        return existingRepository
+            ?? throw new InvalidOperationException("Unable to update repository because it no longer exists.");
     }
 }

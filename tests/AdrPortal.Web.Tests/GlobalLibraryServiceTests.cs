@@ -800,10 +800,11 @@ public class GlobalLibraryServiceTests
 
     private sealed class FakeMadrRepositoryFactory(FakeAdrFileRepository repository) : IMadrRepositoryFactory
     {
-        public IAdrFileRepository Create(ManagedRepository managedRepository)
+        public Task<IAdrFileRepository> CreateAsync(ManagedRepository managedRepository, CancellationToken ct)
         {
             ArgumentNullException.ThrowIfNull(managedRepository);
-            return repository;
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult<IAdrFileRepository>(repository);
         }
     }
 

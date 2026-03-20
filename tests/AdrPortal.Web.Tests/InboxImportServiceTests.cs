@@ -1,6 +1,7 @@
 using AdrPortal.Core.Entities;
 using AdrPortal.Core.Madr;
 using AdrPortal.Core.Repositories;
+using AdrPortal.Core.Workflows;
 using AdrPortal.Infrastructure.Repositories;
 using AdrPortal.Web.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,13 +20,16 @@ public class InboxImportServiceTests
             var managedStore = new FakeManagedRepositoryStore(repository);
             var madrParser = new MadrParser();
             var madrWriter = new MadrWriter();
-            var factory = new MadrRepositoryFactory(madrParser, madrWriter);
+            var factory = new MadrRepositoryFactory(
+                madrParser,
+                madrWriter,
+                new NoopManagedRepositoryCheckoutService());
             var importService = new InboxImportService(
                 managedStore,
                 factory,
                 madrParser,
                 NullLogger<InboxImportService>.Instance);
-            var adrRepository = factory.Create(repository);
+            var adrRepository = await factory.CreateAsync(repository, CancellationToken.None);
 
             _ = await adrRepository.WriteAsync(
                 new Adr
@@ -87,7 +91,10 @@ public class InboxImportServiceTests
             var managedStore = new FakeManagedRepositoryStore(repository);
             var madrParser = new MadrParser();
             var madrWriter = new MadrWriter();
-            var factory = new MadrRepositoryFactory(madrParser, madrWriter);
+            var factory = new MadrRepositoryFactory(
+                madrParser,
+                madrWriter,
+                new NoopManagedRepositoryCheckoutService());
             var importService = new InboxImportService(
                 managedStore,
                 factory,
@@ -125,7 +132,10 @@ public class InboxImportServiceTests
             var managedStore = new FakeManagedRepositoryStore(repository);
             var madrParser = new MadrParser();
             var madrWriter = new MadrWriter();
-            var factory = new MadrRepositoryFactory(madrParser, madrWriter);
+            var factory = new MadrRepositoryFactory(
+                madrParser,
+                madrWriter,
+                new NoopManagedRepositoryCheckoutService());
             var importService = new InboxImportService(
                 managedStore,
                 factory,
@@ -220,6 +230,21 @@ public class InboxImportServiceTests
         {
             ct.ThrowIfCancellationRequested();
             return Task.FromResult(true);
+        }
+    }
+
+    private sealed class NoopManagedRepositoryCheckoutService : IManagedRepositoryCheckoutService
+    {
+        public Task<string> EnsureLocalCheckoutAsync(ManagedRepository repository, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(repository.RootPath);
+        }
+
+        public Task<string> RefreshCheckoutAsync(ManagedRepository repository, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(repository.RootPath);
         }
     }
 }

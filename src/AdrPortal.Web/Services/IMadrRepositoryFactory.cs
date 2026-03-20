@@ -12,6 +12,7 @@ public interface IMadrRepositoryFactory
     /// Creates a file-backed ADR repository for the provided managed repository.
     /// </summary>
     /// <param name="repository">Managed repository settings.</param>
+    /// <param name="ct">Cancellation token for checkout synchronization.</param>
     /// <returns>A configured file-backed ADR repository.</returns>
-    IAdrFileRepository Create(ManagedRepository repository);
+    Task<IAdrFileRepository> CreateAsync(ManagedRepository repository, CancellationToken ct);
 }

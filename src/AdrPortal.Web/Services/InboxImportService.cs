@@ -124,7 +124,7 @@ public sealed partial class InboxImportService(
 
         EnsureContentLooksLikeMarkdown(markdown);
 
-        var adrRepository = madrRepositoryFactory.Create(repository);
+        var adrRepository = await madrRepositoryFactory.CreateAsync(repository, ct);
         var nextNumber = await adrRepository.GetNextNumberAsync(ct);
         var normalizedAdrFolder = RepositoryPathSecurity.NormalizeRelativePath(repository.AdrFolder);
         var slug = BuildSlug(markdown, safeFileName, nextNumber);

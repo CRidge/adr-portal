@@ -71,6 +71,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGitPrWorkflowQueue, InMemoryGitPrWorkflowQueue>();
         services.AddSingleton<IGitCredentialResolver, EnvironmentGitCredentialResolver>();
         services.AddSingleton<IGitRepositoryService, LibGit2SharpRepositoryService>();
+        services.AddSingleton<IManagedRepositoryCheckoutService, LibGit2SharpManagedRepositoryCheckoutService>();
         services.AddSingleton<IGitHubPullRequestService, OctokitGitHubPullRequestService>();
         services.AddSingleton<IGitPrWorkflowProcessor, GitPrWorkflowProcessor>();
 

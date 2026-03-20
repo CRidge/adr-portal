@@ -348,14 +348,15 @@ public class RepositoryComparisonServiceTests
 
     private sealed class FakeMadrRepositoryFactory(IReadOnlyDictionary<int, InMemoryAdrFileRepository> repositoriesById) : IMadrRepositoryFactory
     {
-        public IAdrFileRepository Create(ManagedRepository repository)
+        public Task<IAdrFileRepository> CreateAsync(ManagedRepository repository, CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
             if (!repositoriesById.TryGetValue(repository.Id, out var adrRepository))
             {
                 throw new InvalidOperationException($"No ADR repository configured for repository '{repository.Id}'.");
             }
 
-            return adrRepository;
+            return Task.FromResult<IAdrFileRepository>(adrRepository);
         }
 
         public InMemoryAdrFileRepository GetRepository(int repositoryId)

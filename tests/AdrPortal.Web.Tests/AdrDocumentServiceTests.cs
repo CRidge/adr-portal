@@ -829,10 +829,11 @@ Updated decision details.
     {
         public int? LastRepositoryId { get; private set; }
 
-        public IAdrFileRepository Create(ManagedRepository managedRepository)
+        public Task<IAdrFileRepository> CreateAsync(ManagedRepository managedRepository, CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
             LastRepositoryId = managedRepository.Id;
-            return repository;
+            return Task.FromResult<IAdrFileRepository>(repository);
         }
     }
 
