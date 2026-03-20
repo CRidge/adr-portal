@@ -2,12 +2,74 @@
     --app-bg: #f7f8fb;
     --app-surface: #ffffff;
     --app-surface-muted: #f2f4f8;
+    --app-surface-subtle: #fcfdff;
     --app-text: #1f2733;
     --app-heading: #141b26;
     --app-muted: #546173;
     --app-border: #dbe2ec;
     --app-border-strong: #bcc7d7;
     --app-accent: #2f6feb;
+    --app-focus-outline: #93c5fd;
+
+    --app-sidebar-bg: #111827;
+    --app-sidebar-surface: #1f2937;
+    --app-sidebar-surface-hover: #1e293b;
+    --app-sidebar-border: #374151;
+    --app-sidebar-hover-border: #475569;
+    --app-sidebar-text: #d1d5db;
+    --app-sidebar-text-strong: #f3f4f6;
+    --app-sidebar-muted: #9ca3af;
+    --app-sidebar-badge-bg: #374151;
+    --app-sidebar-badge-text: #d1d5db;
+    --app-sidebar-accent: #60a5fa;
+    --app-sidebar-accent-soft: #bfdbfe;
+    --app-sidebar-manage-bg: #1f2937;
+    --app-sidebar-manage-border: #3b82f6;
+    --app-sidebar-manage-text: #93c5fd;
+
+    --app-info-bg: #eff6ff;
+    --app-info-border: #bfdbfe;
+    --app-info-text: #1e3a8a;
+    --app-error-bg: #fff1f2;
+    --app-error-border: #fca5a5;
+    --app-error-text: #991b1b;
+}
+
+html[data-theme="dark"] {
+    --app-bg: #0f172a;
+    --app-surface: #111827;
+    --app-surface-muted: #1f2937;
+    --app-surface-subtle: #273449;
+    --app-text: #e5e7eb;
+    --app-heading: #f8fafc;
+    --app-muted: #94a3b8;
+    --app-border: #334155;
+    --app-border-strong: #475569;
+    --app-accent: #60a5fa;
+    --app-focus-outline: #60a5fa;
+
+    --app-sidebar-bg: #020617;
+    --app-sidebar-surface: #111827;
+    --app-sidebar-surface-hover: #1f2937;
+    --app-sidebar-border: #334155;
+    --app-sidebar-hover-border: #475569;
+    --app-sidebar-text: #cbd5e1;
+    --app-sidebar-text-strong: #e2e8f0;
+    --app-sidebar-muted: #94a3b8;
+    --app-sidebar-badge-bg: #334155;
+    --app-sidebar-badge-text: #cbd5e1;
+    --app-sidebar-accent: #93c5fd;
+    --app-sidebar-accent-soft: #bfdbfe;
+    --app-sidebar-manage-bg: #111827;
+    --app-sidebar-manage-border: #60a5fa;
+    --app-sidebar-manage-text: #bfdbfe;
+
+    --app-info-bg: #0f2942;
+    --app-info-border: #1d4f7a;
+    --app-info-text: #bfdbfe;
+    --app-error-bg: #3b1017;
+    --app-error-border: #7f1d1d;
+    --app-error-text: #fecaca;
 }
 
 *,
@@ -120,10 +182,10 @@ p {
 }
 
 .blazor-error-boundary {
-    border: 1px solid #f1d0d0;
+    border: 1px solid var(--app-error-border);
     border-radius: 0.7rem;
-    background-color: #fff7f7;
-    color: #8c2f2f;
+    background-color: var(--app-error-bg);
+    color: var(--app-error-text);
     padding: 0.9rem 1rem;
 }
 
@@ -133,4 +195,121 @@ p {
 
 .darker-border-checkbox.form-check-input {
     border-color: #66778f;
+}
+
+html[data-theme="dark"] .global-library-table__grid th,
+html[data-theme="dark"] .compare-results__context,
+html[data-theme="dark"] .compare-results__table th,
+html[data-theme="dark"] .adr-toolbar,
+html[data-theme="dark"] .adr-filter-row,
+html[data-theme="dark"] .adr-upload-zone,
+html[data-theme="dark"] .adr-bootstrap__summary,
+html[data-theme="dark"] .adr-detail__meta-item,
+html[data-theme="dark"] .adr-detail__transitions,
+html[data-theme="dark"] .adr-detail__sync,
+html[data-theme="dark"] .adr-detail__affected,
+html[data-theme="dark"] .global-adr-versions details pre,
+html[data-theme="dark"] .global-adr-diff,
+html[data-theme="dark"] .adr-detail__content pre,
+html[data-theme="dark"] .compare-row--selected {
+    background-color: var(--app-surface-muted);
+}
+
+html[data-theme="dark"] .compare-controls,
+html[data-theme="dark"] .adr-page__context,
+html[data-theme="dark"] .adr-editor-page__context,
+html[data-theme="dark"] .global-adr-page__stats,
+html[data-theme="dark"] .adr-detail__content,
+html[data-theme="dark"] .adr-detail__affected-list li,
+html[data-theme="dark"] .adr-editor-ai,
+html[data-theme="dark"] .adr-bootstrap-card,
+html[data-theme="dark"] .global-adr-button,
+html[data-theme="dark"] .global-adr-flag,
+html[data-theme="dark"] .compare-controls__button,
+html[data-theme="dark"] .adr-detail__supersede-input,
+html[data-theme="dark"] .adr-detail__button,
+html[data-theme="dark"] .repo-settings__button--danger {
+    background-color: var(--app-surface);
+    color: var(--app-text);
+    border-color: var(--app-border);
+}
+
+html[data-theme="dark"] .chip {
+    border-color: var(--app-border);
+    background-color: var(--app-surface-muted);
+    color: var(--app-text);
+}
+
+html[data-theme="dark"] .chip__count {
+    border-color: rgba(226, 232, 240, 0.25);
+}
+
+html[data-theme="dark"] .adr-bootstrap-card--selected {
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.4) inset;
+}
+
+html[data-theme="dark"] .compare-controls__button:hover:not(:disabled),
+html[data-theme="dark"] .adr-detail__button:hover:not(:disabled),
+html[data-theme="dark"] .global-adr-button:hover:not(:disabled),
+html[data-theme="dark"] .repo-settings__button--danger:hover:not(:disabled),
+html[data-theme="dark"] .adr-upload-zone__drop:hover {
+    background-color: var(--app-surface-muted);
+}
+
+html[data-theme="dark"] .compare-controls__button--primary,
+html[data-theme="dark"] .adr-bootstrap__primary,
+html[data-theme="dark"] .global-adr-button--review,
+html[data-theme="dark"] .adr-detail__button--analysis,
+html[data-theme="dark"] .adr-editor__button--analysis {
+    border-color: #1d4f7a;
+    background-color: #0f2942;
+    color: #bfdbfe;
+}
+
+html[data-theme="dark"] .compare-controls__button--primary:hover:not(:disabled),
+html[data-theme="dark"] .adr-bootstrap__primary:hover:not(:disabled),
+html[data-theme="dark"] .global-adr-button--review:hover:not(:disabled),
+html[data-theme="dark"] .adr-detail__button--analysis:hover:not(:disabled),
+html[data-theme="dark"] .adr-editor__button--analysis:hover:not(:disabled) {
+    background-color: #123454;
+}
+
+html[data-theme="dark"] .repo-status,
+html[data-theme="dark"] .repo-settings__status {
+    border-color: var(--app-info-border);
+    background-color: var(--app-info-bg);
+    color: var(--app-info-text);
+}
+
+html[data-theme="dark"] .repo-status--error,
+html[data-theme="dark"] .repo-settings__status--error {
+    border-color: var(--app-error-border);
+    background-color: var(--app-error-bg);
+    color: var(--app-error-text);
+}
+
+html[data-theme="dark"] .adr-upload-zone__drop {
+    border-color: #1d4f7a;
+    background-color: #0f2942;
+    color: #bfdbfe;
+}
+
+html[data-theme="dark"] #components-reconnect-modal {
+    background-color: var(--app-surface);
+    color: var(--app-text);
+    box-shadow: 0 3px 6px 2px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="dark"] #components-reconnect-modal button {
+    background-color: #1d4f7a;
+    color: #e2e8f0;
+}
+
+html[data-theme="dark"] #components-reconnect-modal button:hover {
+    background-color: #26618f;
+}
+
+html[data-theme="dark"] #components-reconnect-modal button:active {
+    background-color: #1d4f7a;
 }
