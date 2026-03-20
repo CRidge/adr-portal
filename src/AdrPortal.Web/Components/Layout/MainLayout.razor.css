@@ -67,7 +67,6 @@
     color: var(--app-muted);
     max-width: 33rem;
 }
-
 .shell__theme-toggle {
     display: inline-flex;
     align-items: center;
@@ -341,7 +340,6 @@
     .shell__status {
         max-width: none;
     }
-
     .shell__body {
         grid-template-columns: 1fr;
     }

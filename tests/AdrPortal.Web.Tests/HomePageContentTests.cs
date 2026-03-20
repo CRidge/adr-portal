@@ -71,6 +71,7 @@ public class HomePageContentTests
         await Assert.That(markup.Contains("shell__repo-indicator", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("Track ADR decisions, run AI analysis, and keep templates in sync.", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("shell__theme-toggle", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(markup.Contains("aria-pressed=\"@IsDarkTheme\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("ToggleThemeAsync", StringComparison.Ordinal)).IsTrue();
         await Assert.That(markup.Contains("Workflow actions (coming soon)", StringComparison.Ordinal)).IsFalse();
         await Assert.That(markup.Contains("Workflow tip", StringComparison.Ordinal)).IsTrue();
