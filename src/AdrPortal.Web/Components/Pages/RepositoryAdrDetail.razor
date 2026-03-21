@@ -18,7 +18,7 @@
         <p class="shell__hint">Review template proposals through the global library.</p>
         <div class="adr-page__actions">
             <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}")">Return to ADR list</a>
-            <a class="adr-page__settings-link" href="/global">Open global library</a>
+            <a class="adr-page__settings-link" href="/global">Sync with global library</a>
         </div>
     </section>
 }
@@ -40,7 +40,7 @@ else
             </div>
             <div class="adr-page__actions">
                 <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}/adr/{detail.Number}/edit")">Edit ADR</a>
-                <a class="adr-page__settings-link" href="/global">Global library</a>
+                <a class="adr-page__settings-link" href="/global">Sync with global library</a>
                 <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}")">Back to list</a>
             </div>
         </header>
@@ -157,13 +157,13 @@ else
 
         @if (syncStatus is not null)
         {
-            <section class="adr-detail__sync">
+            <section id="global-sync" class="adr-detail__sync">
                 <h3>Global sync</h3>
                 <p class="adr-detail__sync-summary">
                     Base template v@syncStatus.BaseTemplateVersion · Current global v@syncStatus.CurrentGlobalVersion
                 </p>
                 <ul class="adr-detail__sync-steps">
-                    <li>Repo → library: use <strong>Propose library update</strong> when this ADR has template improvements.</li>
+                    <li>Repo → library: use <strong>Promote to global library</strong> when this ADR has template improvements.</li>
                     <li>Library → repos: open <a class="inline-link" href="@($"/global/{syncStatus.GlobalId}")">global detail</a> to apply or customise updates.</li>
                     <li>Run <strong>Find Affected ADRs</strong> after major changes to discover related decisions.</li>
                 </ul>
@@ -179,20 +179,28 @@ else
                 {
                     <p class="@(syncIsError ? "repo-status repo-status--error" : "repo-status")">@syncMessage</p>
                 }
-                @if (syncStatus.HasLocalChanges)
+                <div class="adr-detail__transition-row">
+                    <button type="button"
+                            class="adr-detail__button adr-detail__button--propose"
+                            @onclick="ProposeLibraryUpdateAsync"
+                            disabled="@GetPromoteButtonDisabled(syncStatus)">
+                        @(isApplyingSync ? "Promoting to global library..." : "Promote to global library")
+                    </button>
+                </div>
+                @if (syncStatus.HasPendingProposal)
                 {
-                    <div class="adr-detail__transition-row">
-                        <button type="button"
-                                class="adr-detail__button adr-detail__button--propose"
-                                @onclick="ProposeLibraryUpdateAsync"
-                                disabled="@isApplyingSync || syncStatus.HasPendingProposal">
-                            @(syncStatus.HasPendingProposal ? "Proposal pending" : "Propose library update")
-                        </button>
-                    </div>
+                    <p class="shell__hint">
+                        Promotion is currently unavailable because a pending proposal already exists for this ADR.
+                        Review it in <a class="inline-link" href="@($"/global/{syncStatus.GlobalId}#repo-library-proposals")">Repo → library proposals</a>.
+                    </p>
                 }
-                else
+                else if (!CanPromoteToGlobalLibrary(syncStatus))
                 {
-                    <p class="shell__hint">No local template divergence detected for repo → library proposals.</p>
+                    <p class="shell__hint">
+                        Promotion is currently unavailable because this ADR has no local template changes compared to its base global version.
+                        Make repository-side template updates in <a class="inline-link" href="@($"/repos/{RepositoryId}/adr/{detail.Number}/edit")">Edit ADR</a>,
+                        then return and choose <strong>Promote to global library</strong>.
+                    </p>
                 }
 
                 @if (syncStatus.UpdateAvailable)
@@ -206,14 +214,25 @@ else
         }
         else
         {
-            <section class="adr-detail__sync">
+            <section id="global-sync" class="adr-detail__sync">
                 <h3>Global sync</h3>
                 <p class="adr-detail__sync-summary">
                     This ADR is not linked to a global template yet.
                 </p>
+                <div class="adr-detail__transition-row">
+                    <button type="button"
+                            class="adr-detail__button adr-detail__button--propose"
+                            disabled="true">
+                        Promote to global library
+                    </button>
+                </div>
+                <p class="shell__hint">
+                    Promotion is unavailable until this ADR is linked to a global template with <code>global-id</code> and <code>global-version</code> metadata.
+                    Open the global library to choose a template and complete the link first.
+                </p>
                 <div class="adr-detail__sync-links">
                     <a class="adr-detail__sync-link" href="/global">
-                        Open global ADR library
+                        Sync with global library
                     </a>
                 </div>
                 <p class="shell__hint">
@@ -523,7 +542,7 @@ else
     }
 
     /// <summary>
-    /// Proposes a global library update from the current repository ADR.
+    /// Promotes ADR template changes into a pending global library proposal.
     /// </summary>
     /// <returns>An asynchronous operation.</returns>
     private async Task ProposeLibraryUpdateAsync()
@@ -575,6 +594,26 @@ else
         {
             isApplyingSync = false;
         }
+    }
+
+    /// <summary>
+    /// Determines whether promote action should be enabled for current sync state.
+    /// </summary>
+    /// <param name="status">Sync status projection.</param>
+    /// <returns><see langword="true"/> when promote is actionable; otherwise <see langword="false"/>.</returns>
+    private static bool CanPromoteToGlobalLibrary(RepositoryAdrSyncStatus status)
+    {
+        return status.HasLocalChanges;
+    }
+
+    /// <summary>
+    /// Determines whether the promote button should be disabled.
+    /// </summary>
+    /// <param name="status">Sync status projection.</param>
+    /// <returns><see langword="true"/> when promote action is not currently allowed.</returns>
+    private bool GetPromoteButtonDisabled(RepositoryAdrSyncStatus status)
+    {
+        return isApplyingSync || status.HasPendingProposal || !CanPromoteToGlobalLibrary(status);
     }
 
     /// <summary>

@@ -16,7 +16,7 @@
         <p class="repo-status repo-status--error">@loadError</p>
         <div class="adr-page__actions">
             <a class="adr-page__settings-link" href="/settings/repos">Manage repositories</a>
-            <a class="adr-page__settings-link" href="/global">Open global library</a>
+            <a class="adr-page__settings-link" href="/global">Sync with global library</a>
         </div>
     </section>
 }
@@ -39,7 +39,7 @@ else
             <div class="adr-page__actions">
                 <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}/adr/new")">+ New ADR</a>
                 <a class="adr-page__settings-link" href="/settings/repos">Manage repositories</a>
-                <a class="adr-page__settings-link" href="/global">Global library</a>
+                <a class="adr-page__settings-link" href="/global">Sync with global library</a>
             </div>
         </header>
 
@@ -218,6 +218,7 @@ else
                         </a>
                         <div class="adr-row__actions">
                             <span class="state-badge @item.StatusView.CssModifier">@item.StatusView.Label</span>
+                            <a class="adr-row__sync" href="@($"/repos/{RepositoryId}/adr/{item.Number}#global-sync")">Sync with global library</a>
                             <a class="adr-row__edit" href="@($"/repos/{RepositoryId}/adr/{item.Number}/edit")">Edit</a>
                         </div>
                     </li>

@@ -365,6 +365,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .adr-row__edit {
@@ -379,6 +381,21 @@
 
 .adr-row__edit:hover {
     background-color: #eef2f7;
+}
+
+.adr-row__sync {
+    border: 1px solid #bfdbfe;
+    border-radius: var(--app-radius-sm);
+    padding: 0.2rem 0.5rem;
+    text-decoration: none;
+    font-size: 0.78rem;
+    color: #1d4ed8;
+    background-color: #dbeafe;
+    font-weight: 700;
+}
+
+.adr-row__sync:hover {
+    background-color: #bfdbfe;
 }
 
 .adr-row:last-child {
