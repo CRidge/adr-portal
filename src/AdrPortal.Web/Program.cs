@@ -3,7 +3,7 @@ using AdrPortal.Web.Services;
 using AdrPortal.Web.State;
 using AdrPortal.Infrastructure.Data;
 using AdrPortal.Infrastructure.Extensions;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +32,8 @@ var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AdrPortalDbContext>();
-    await dbContext.Database.MigrateAsync();
+    var persistenceOptions = scope.ServiceProvider.GetRequiredService<IOptions<PersistenceOptions>>().Value;
+    await DatabaseInitializer.InitializeAsync(dbContext, persistenceOptions, CancellationToken.None);
 }
 
 await using (var scope = app.Services.CreateAsyncScope())

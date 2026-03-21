@@ -88,3 +88,7 @@ Persistence and runtime notes:
 * Optional integration tokens can be injected via environment variables before `docker compose up`:
   * `GITHUB_TOKEN`
   * `COPILOT_TOKEN`
+
+## Durable Persistence Injection (Phase 16)
+
+The AppHost injects `Persistence__DatabaseRootPath` for the web project so SQLite files are anchored to a stable OS-backed path rather than the working directory. This improves restart resilience for local Aspire runs and avoids accidental database relocation between launches.

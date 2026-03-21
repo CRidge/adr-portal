@@ -80,3 +80,15 @@ Chosen option: "SQLite via EF Core", because it requires no external server, int
 * [ADR-0005: File-Based ADR Storage](adr-0005-file-based-adr-storage.md)
 * [ADR-0008: .NET Aspire for Local Orchestration](adr-0008-aspire-local-orchestration.md)
 * [ADR-0012: Global ADR Versioned Library](adr-0012-global-adr-versioned-library.md)
+
+## Persistence Path and Reset Safety (Phase 16)
+
+To prevent accidental data loss and avoid runtime-path-dependent database placement, startup now applies explicit safety rules:
+
+* Relative SQLite `Data Source` values are resolved into a durable root folder (default `%LOCALAPPDATA%\AdrPortal\data` on Windows when available, with user-profile fallback).
+* Database deletion on startup is opt-in only via `Persistence:ResetDatabaseOnStartup=true`; the default is `false`.
+
+Additional behavior:
+
+* If a legacy database file exists at a previous relative location, it is copied into the durable root on first run (including optional SQLite `-wal` and `-shm` companion files) when the target does not already exist.
+* Relative traversal outside the configured root is rejected at startup to prevent path escape from the persistence boundary.

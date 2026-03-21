@@ -14,4 +14,10 @@ public sealed class PersistenceOptions
     /// Gets or sets an optional explicit root directory for SQLite database files.
     /// </summary>
     public string? DatabaseRootPath { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether startup should delete and recreate the database.
+    /// This is destructive and must be explicitly enabled.
+    /// </summary>
+    public bool ResetDatabaseOnStartup { get; set; }
 }

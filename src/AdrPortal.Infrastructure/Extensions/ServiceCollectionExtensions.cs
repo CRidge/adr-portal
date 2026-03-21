@@ -42,6 +42,10 @@ public static class ServiceCollectionExtensions
 
         var configuredDatabaseRootPath = configuration[
             $"{PersistenceOptions.SectionName}:{nameof(PersistenceOptions.DatabaseRootPath)}"];
+        var resetDatabaseOnStartup = bool.TryParse(
+            configuration[$"{PersistenceOptions.SectionName}:{nameof(PersistenceOptions.ResetDatabaseOnStartup)}"],
+            out var parsedResetDatabaseOnStartup)
+            && parsedResetDatabaseOnStartup;
         if (!string.IsNullOrWhiteSpace(configuredDatabaseRootPath))
         {
             configuredDatabaseRootPath = Environment.ExpandEnvironmentVariables(configuredDatabaseRootPath);
@@ -57,6 +61,7 @@ public static class ServiceCollectionExtensions
         services.Configure<PersistenceOptions>(options =>
         {
             options.DatabaseRootPath = configuredDatabaseRootPath;
+            options.ResetDatabaseOnStartup = resetDatabaseOnStartup;
         });
 
         var resolvedConnectionString = SqliteConnectionStringResolver.ResolveConnectionString(

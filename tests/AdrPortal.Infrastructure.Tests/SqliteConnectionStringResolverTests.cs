@@ -152,6 +152,24 @@ public class SqliteConnectionStringResolverTests
         await Assert.That(Path.GetFullPath(builder.DataSource)).IsEqualTo(Path.GetFullPath(expectedPath));
     }
 
+    [Test]
+    public async Task ResolveDatabaseRootPath_ExplicitRelativeRoot_ResolvesToAbsolutePath()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            var resolved = SqliteConnectionStringResolver.ResolveDatabaseRootPath(
+                Path.Combine(root, ".", "db-root"));
+
+            await Assert.That(Path.IsPathRooted(resolved)).IsTrue();
+            await Assert.That(Directory.Exists(resolved)).IsTrue();
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
     private static string CreateTemporaryDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "adr-persistence-tests", Guid.NewGuid().ToString("N"));
