@@ -25,11 +25,13 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">Dependency injection service collection.</param>
     /// <param name="configuration">Application configuration.</param>
+    /// <param name="contentRootPath">Application content root used to locate legacy relative database files.</param>
     /// <returns>The same service collection instance.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the ADR portal connection string is missing.</exception>
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        string? contentRootPath = null)
     {
         var connectionString = configuration.GetConnectionString(AdrPortalConnectionStringName);
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -38,9 +40,35 @@ public static class ServiceCollectionExtensions
                 $"Connection string '{AdrPortalConnectionStringName}' is required for infrastructure services.");
         }
 
+        var configuredDatabaseRootPath = configuration[
+            $"{PersistenceOptions.SectionName}:{nameof(PersistenceOptions.DatabaseRootPath)}"];
+        if (!string.IsNullOrWhiteSpace(configuredDatabaseRootPath))
+        {
+            configuredDatabaseRootPath = Environment.ExpandEnvironmentVariables(configuredDatabaseRootPath);
+            if (!Path.IsPathRooted(configuredDatabaseRootPath))
+            {
+                var rootAnchor = string.IsNullOrWhiteSpace(contentRootPath)
+                    ? AppContext.BaseDirectory
+                    : contentRootPath;
+                configuredDatabaseRootPath = Path.GetFullPath(Path.Combine(rootAnchor, configuredDatabaseRootPath));
+            }
+        }
+
+        services.Configure<PersistenceOptions>(options =>
+        {
+            options.DatabaseRootPath = configuredDatabaseRootPath;
+        });
+
+        var resolvedConnectionString = SqliteConnectionStringResolver.ResolveConnectionString(
+            connectionString,
+            configuredDatabaseRootPath,
+            contentRootPath,
+            Environment.CurrentDirectory,
+            AppContext.BaseDirectory);
+
         services.AddDbContext<AdrPortalDbContext>(options =>
         {
-            options.UseSqlite(connectionString);
+            options.UseSqlite(resolvedConnectionString);
         });
 
         services.AddScoped<IManagedRepositoryStore, ManagedRepositoryStore>();

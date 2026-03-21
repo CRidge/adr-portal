@@ -12,7 +12,7 @@ builder.AddServiceDefaults();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
 builder.Services.AddScoped<RepositoryCatalogState>();
 builder.Services.AddScoped<IMadrRepositoryFactory, MadrRepositoryFactory>();
 builder.Services.AddScoped<AdrDocumentService>();
