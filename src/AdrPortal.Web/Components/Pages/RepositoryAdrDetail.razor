@@ -222,15 +222,22 @@ else
                 <div class="adr-detail__transition-row">
                     <button type="button"
                             class="adr-detail__button adr-detail__button--propose"
-                            disabled="true">
-                        Promote to global library
+                            @onclick="ProposeLibraryUpdateAsync"
+                            disabled="@GetPromoteButtonDisabled(syncStatus)">
+                        @(isApplyingSync ? "Promoting to global library..." : "Promote to global library")
                     </button>
                 </div>
                 <p class="shell__hint">
-                    Promotion is unavailable until this ADR is linked to a global template with <code>global-id</code> and <code>global-version</code> metadata.
-                    Open the global library to choose a template and complete the link first.
+                    This ADR can be promoted directly. Promotion will create a new global template, register version <code>v1</code>,
+                    and write <code>global-id</code> / <code>global-version</code> metadata back to this repository ADR.
                 </p>
                 <div class="adr-detail__sync-links">
+                    @if (syncStatus is not null)
+                    {
+                        <a class="adr-detail__sync-link" href="@($"/global/{syncStatus.GlobalId}")">
+                            Open global ADR detail
+                        </a>
+                    }
                     <a class="adr-detail__sync-link" href="/global">
                         Sync with global library
                     </a>
@@ -547,7 +554,7 @@ else
     /// <returns>An asynchronous operation.</returns>
     private async Task ProposeLibraryUpdateAsync()
     {
-        if (detail is null || isApplyingSync || syncStatus is null)
+        if (detail is null || isApplyingSync)
         {
             return;
         }
@@ -568,7 +575,20 @@ else
 
             var result = await GlobalLibraryService.ProposeLibraryUpdateAsync(RepositoryId, adrResult.Value.Adr, CancellationToken.None);
             syncMessage = result.Message;
-            syncStatus = await GlobalLibraryService.GetRepositoryAdrSyncStatusAsync(RepositoryId, adrResult.Value.Adr, CancellationToken.None);
+
+            var refreshedResult = await AdrDocumentService.GetRepositoryAdrAsync(RepositoryId, Number, CancellationToken.None);
+            if (refreshedResult is not null)
+            {
+                repository = refreshedResult.Value.Repository;
+                detail = AdrListViewService.BuildDetail(
+                    refreshedResult.Value.Adr,
+                    AdrMarkdownRenderer.Render(refreshedResult.Value.Adr.RawMarkdown));
+                supersedeTargetNumber = detail.SupersededByNumber;
+                syncStatus = await GlobalLibraryService.GetRepositoryAdrSyncStatusAsync(
+                    RepositoryId,
+                    refreshedResult.Value.Adr,
+                    CancellationToken.None);
+            }
         }
         catch (InvalidOperationException exception)
         {
@@ -601,8 +621,13 @@ else
     /// </summary>
     /// <param name="status">Sync status projection.</param>
     /// <returns><see langword="true"/> when promote is actionable; otherwise <see langword="false"/>.</returns>
-    private static bool CanPromoteToGlobalLibrary(RepositoryAdrSyncStatus status)
+    private bool CanPromoteToGlobalLibrary(RepositoryAdrSyncStatus? status)
     {
+        if (status is null)
+        {
+            return true;
+        }
+
         return status.HasLocalChanges;
     }
 
@@ -611,8 +636,13 @@ else
     /// </summary>
     /// <param name="status">Sync status projection.</param>
     /// <returns><see langword="true"/> when promote action is not currently allowed.</returns>
-    private bool GetPromoteButtonDisabled(RepositoryAdrSyncStatus status)
+    private bool GetPromoteButtonDisabled(RepositoryAdrSyncStatus? status)
     {
+        if (status is null)
+        {
+            return isApplyingSync;
+        }
+
         return isApplyingSync || status.HasPendingProposal || !CanPromoteToGlobalLibrary(status);
     }
 

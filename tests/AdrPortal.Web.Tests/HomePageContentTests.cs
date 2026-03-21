@@ -127,7 +127,8 @@ public class HomePageContentTests
         await Assert.That(detailMarkup.Contains("Sync with global library", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("id=\"global-sync\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Promotion is currently unavailable because", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(detailMarkup.Contains("Promotion is unavailable until this ADR is linked to a global template", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("This ADR can be promoted directly.", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Promotion is unavailable until this ADR is linked to a global template", StringComparison.Ordinal)).IsFalse();
         await Assert.That(detailMarkup.Contains("/global/{syncStatus.GlobalId}", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Open global library", StringComparison.Ordinal)).IsFalse();
         await Assert.That(detailMarkup.Contains("Mark superseded", StringComparison.Ordinal)).IsTrue();

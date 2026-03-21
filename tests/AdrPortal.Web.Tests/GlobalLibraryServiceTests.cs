@@ -304,7 +304,10 @@ public class GlobalLibraryServiceTests
     public async Task ProposeLibraryUpdateAsync_ThrowsWhenAdrHasNoLocalChanges()
     {
         var globalId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+        var repositoryId = 300;
+        var repository = CreateRepository(repositoryId, "contoso/use-nats");
         var adr = CreateAdr(7, "Use NATS", "use-nats", AdrStatus.Accepted, globalId, 1, "# Use NATS\nbaseline");
+        var fileRepository = new FakeAdrFileRepository([adr]);
         var globalStore = new FakeGlobalAdrStore(
             globalAdrs:
             [
@@ -330,12 +333,15 @@ public class GlobalLibraryServiceTests
             ],
             proposals: [],
             instances: []);
-        var service = CreateService(globalStore);
+        var service = CreateService(
+            globalStore,
+            managedStore: new FakeManagedRepositoryStore([repository]),
+            fileRepository: fileRepository);
 
         Exception? exception = null;
         try
         {
-            _ = await service.ProposeLibraryUpdateAsync(repositoryId: 300, adr, CancellationToken.None);
+            _ = await service.ProposeLibraryUpdateAsync(repositoryId, adr, CancellationToken.None);
         }
         catch (Exception caught)
         {
@@ -348,10 +354,63 @@ public class GlobalLibraryServiceTests
     }
 
     [Test]
+    public async Task ProposeLibraryUpdateAsync_RegistersUnlinkedAdrAsNewGlobalTemplate()
+    {
+        var repositoryId = 302;
+        var repository = CreateRepository(repositoryId, "contoso/unlinked-promotion");
+        var unlinkedAdr = CreateAdr(
+            number: 12,
+            title: "Use Event Grid",
+            slug: "use-event-grid",
+            status: AdrStatus.Accepted,
+            globalId: null,
+            globalVersion: null,
+            rawMarkdown: "# Use Event Grid");
+        var fileRepository = new FakeAdrFileRepository([unlinkedAdr]);
+        var globalStore = new FakeGlobalAdrStore(globalAdrs: [], versions: [], proposals: [], instances: []);
+        var service = CreateService(
+            globalStore,
+            managedStore: new FakeManagedRepositoryStore([repository]),
+            fileRepository: fileRepository);
+
+        var result = await service.ProposeLibraryUpdateAsync(repositoryId, unlinkedAdr, CancellationToken.None);
+
+        await Assert.That(result.Message.Contains("Promoted ADR-0012 to the global library as template v1", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(globalStore.GlobalAdrs.Count).IsEqualTo(1);
+        await Assert.That(globalStore.Versions.Count).IsEqualTo(1);
+        await Assert.That(globalStore.Proposals.Count).IsEqualTo(0);
+        await Assert.That(globalStore.Instances.Count).IsEqualTo(1);
+
+        var createdGlobal = globalStore.GlobalAdrs.Single();
+        await Assert.That(createdGlobal.Title).IsEqualTo("Use Event Grid");
+        await Assert.That(createdGlobal.CurrentVersion).IsEqualTo(1);
+
+        var createdVersion = globalStore.Versions.Single();
+        await Assert.That(createdVersion.GlobalId).IsEqualTo(createdGlobal.GlobalId);
+        await Assert.That(createdVersion.VersionNumber).IsEqualTo(1);
+        await Assert.That(createdVersion.MarkdownContent).IsEqualTo("# Use Event Grid");
+
+        var instance = globalStore.Instances.Single();
+        await Assert.That(instance.GlobalId).IsEqualTo(createdGlobal.GlobalId);
+        await Assert.That(instance.RepositoryId).IsEqualTo(repositoryId);
+        await Assert.That(instance.LocalAdrNumber).IsEqualTo(12);
+        await Assert.That(instance.BaseTemplateVersion).IsEqualTo(1);
+        await Assert.That(instance.HasLocalChanges).IsFalse();
+        await Assert.That(instance.UpdateAvailable).IsFalse();
+
+        await Assert.That(fileRepository.LastWrittenAdr).IsNotNull();
+        await Assert.That(fileRepository.LastWrittenAdr!.GlobalId).IsEqualTo(createdGlobal.GlobalId);
+        await Assert.That(fileRepository.LastWrittenAdr!.GlobalVersion).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task ProposeLibraryUpdateAsync_AddsPendingProposalWhenLocalChangesExist()
     {
         var globalId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+        var repositoryId = 301;
+        var repository = CreateRepository(repositoryId, "contoso/use-redis");
         var adr = CreateAdr(8, "Use Redis", "use-redis", AdrStatus.Accepted, globalId, 1, "# Use Redis\ncustomized");
+        var fileRepository = new FakeAdrFileRepository([adr]);
         var globalStore = new FakeGlobalAdrStore(
             globalAdrs:
             [
@@ -377,15 +436,18 @@ public class GlobalLibraryServiceTests
             ],
             proposals: [],
             instances: []);
-        var service = CreateService(globalStore);
+        var service = CreateService(
+            globalStore,
+            managedStore: new FakeManagedRepositoryStore([repository]),
+            fileRepository: fileRepository);
 
-        var result = await service.ProposeLibraryUpdateAsync(repositoryId: 301, adr, CancellationToken.None);
+        var result = await service.ProposeLibraryUpdateAsync(repositoryId, adr, CancellationToken.None);
 
         await Assert.That(result.Message.Contains("Created a pending library update proposal", StringComparison.Ordinal)).IsTrue();
         await Assert.That(globalStore.Proposals.Count).IsEqualTo(1);
         var proposal = globalStore.Proposals.Single();
         await Assert.That(proposal.IsPending).IsTrue();
-        await Assert.That(proposal.RepositoryId).IsEqualTo(301);
+        await Assert.That(proposal.RepositoryId).IsEqualTo(repositoryId);
         await Assert.That(proposal.LocalAdrNumber).IsEqualTo(8);
         await Assert.That(proposal.ProposedFromVersion).IsEqualTo(1);
     }
@@ -764,24 +826,30 @@ public class GlobalLibraryServiceTests
 
     private sealed class FakeAdrFileRepository(IReadOnlyList<Adr> adrs) : IAdrFileRepository
     {
+        private readonly Dictionary<int, Adr> adrsByNumber = adrs.ToDictionary(item => item.Number);
+
         public int GetAllCallCount { get; private set; }
+        public Adr? LastWrittenAdr { get; private set; }
 
         public Task<IReadOnlyList<Adr>> GetAllAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             GetAllCallCount++;
-            return Task.FromResult(adrs);
+            return Task.FromResult<IReadOnlyList<Adr>>(adrsByNumber.Values.OrderBy(item => item.Number).ToArray());
         }
 
         public Task<Adr?> GetByNumberAsync(int number, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            return Task.FromResult(adrs.SingleOrDefault(adr => adr.Number == number));
+            _ = adrsByNumber.TryGetValue(number, out var adr);
+            return Task.FromResult(adr);
         }
 
         public Task<Adr> WriteAsync(Adr adr, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            adrsByNumber[adr.Number] = adr;
+            LastWrittenAdr = adr;
             return Task.FromResult(adr);
         }
 
@@ -794,7 +862,7 @@ public class GlobalLibraryServiceTests
         public Task<int> GetNextNumberAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            return Task.FromResult(adrs.Count is 0 ? 1 : adrs.Max(item => item.Number) + 1);
+            return Task.FromResult(adrsByNumber.Count is 0 ? 1 : adrsByNumber.Keys.Max() + 1);
         }
     }
 

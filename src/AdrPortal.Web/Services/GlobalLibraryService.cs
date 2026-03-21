@@ -280,10 +280,20 @@ public sealed class GlobalLibraryService(
         ArgumentNullException.ThrowIfNull(adr);
         ct.ThrowIfCancellationRequested();
 
-        var syncStatus = await GetRepositoryAdrSyncStatusAsync(repositoryId, adr, ct);
+        var repository = await managedRepositoryStore.GetByIdAsync(repositoryId, ct)
+            ?? throw new InvalidOperationException($"Repository '{repositoryId}' was not found.");
+        var repositoryAdrStore = madrRepositoryFactory.Create(repository);
+        var currentAdr = await repositoryAdrStore.GetByNumberAsync(adr.Number, ct) ?? adr;
+
+        if (currentAdr.GlobalId is null || currentAdr.GlobalVersion is null || currentAdr.GlobalVersion.Value < 1)
+        {
+            return await RegisterRepositoryAdrAsGlobalTemplateAsync(repository, repositoryAdrStore, currentAdr, ct);
+        }
+
+        var syncStatus = await GetRepositoryAdrSyncStatusAsync(repositoryId, currentAdr, ct);
         if (syncStatus is null)
         {
-            throw new InvalidOperationException("ADR is not linked to a global template.");
+            return await RestoreMissingGlobalRegistrationAsync(repository, currentAdr, ct);
         }
 
         if (!syncStatus.HasLocalChanges)
@@ -304,10 +314,10 @@ public sealed class GlobalLibraryService(
             {
                 GlobalId = syncStatus.GlobalId,
                 RepositoryId = repositoryId,
-                LocalAdrNumber = adr.Number,
+                LocalAdrNumber = currentAdr.Number,
                 ProposedFromVersion = syncStatus.BaseTemplateVersion,
-                ProposedTitle = adr.Title,
-                ProposedMarkdownContent = adr.RawMarkdown,
+                ProposedTitle = currentAdr.Title,
+                ProposedMarkdownContent = currentAdr.RawMarkdown,
                 IsPending = true,
                 CreatedAtUtc = DateTime.UtcNow
             },
@@ -315,7 +325,145 @@ public sealed class GlobalLibraryService(
 
         return new GlobalSyncActionResult
         {
-            Message = $"Created a pending library update proposal from ADR-{adr.Number:0000}."
+            Message = $"Created a pending library update proposal from ADR-{currentAdr.Number:0000}."
+        };
+    }
+
+    /// <summary>
+    /// Registers an unlinked repository ADR as a new global template and links the repository ADR metadata.
+    /// </summary>
+    /// <param name="repository">Repository containing the ADR.</param>
+    /// <param name="repositoryAdrStore">ADR file store for the repository.</param>
+    /// <param name="adr">Current repository ADR value.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Outcome message.</returns>
+    private async Task<GlobalSyncActionResult> RegisterRepositoryAdrAsGlobalTemplateAsync(
+        ManagedRepository repository,
+        IAdrFileRepository repositoryAdrStore,
+        Adr adr,
+        CancellationToken ct)
+    {
+        var nowUtc = DateTime.UtcNow;
+        var globalId = Guid.NewGuid();
+        const int initialVersion = 1;
+
+        _ = await globalAdrStore.AddAsync(
+            new GlobalAdr
+            {
+                GlobalId = globalId,
+                Title = adr.Title,
+                CurrentVersion = initialVersion,
+                RegisteredAtUtc = nowUtc,
+                LastUpdatedAtUtc = nowUtc,
+                Instances = [],
+                Versions = [],
+                UpdateProposals = []
+            },
+            ct);
+
+        _ = await globalAdrStore.AddVersionAsync(
+            new GlobalAdrVersion
+            {
+                GlobalId = globalId,
+                VersionNumber = initialVersion,
+                Title = adr.Title,
+                MarkdownContent = adr.RawMarkdown,
+                CreatedAtUtc = nowUtc
+            },
+            ct);
+
+        var linkedAdr = adr with
+        {
+            GlobalId = globalId,
+            GlobalVersion = initialVersion
+        };
+        var persistedAdr = await repositoryAdrStore.WriteAsync(linkedAdr, ct);
+
+        _ = await globalAdrStore.UpsertInstanceAsync(
+            new GlobalAdrInstance
+            {
+                GlobalId = globalId,
+                RepositoryId = repository.Id,
+                LocalAdrNumber = persistedAdr.Number,
+                RepoRelativePath = persistedAdr.RepoRelativePath,
+                LastKnownStatus = persistedAdr.Status,
+                BaseTemplateVersion = initialVersion,
+                HasLocalChanges = false,
+                UpdateAvailable = false,
+                LastReviewedAtUtc = nowUtc
+            },
+            ct);
+
+        return new GlobalSyncActionResult
+        {
+            Message = $"Promoted ADR-{persistedAdr.Number:0000} to the global library as template v{initialVersion}."
+        };
+    }
+
+    /// <summary>
+    /// Restores global library registration when ADR metadata is linked but the global row is missing.
+    /// </summary>
+    /// <param name="repository">Repository containing the ADR.</param>
+    /// <param name="adr">Linked ADR value.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Outcome message.</returns>
+    private async Task<GlobalSyncActionResult> RestoreMissingGlobalRegistrationAsync(
+        ManagedRepository repository,
+        Adr adr,
+        CancellationToken ct)
+    {
+        if (adr.GlobalId is null || adr.GlobalVersion is null || adr.GlobalVersion.Value < 1)
+        {
+            throw new InvalidOperationException("ADR is not linked to a global template.");
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        var globalId = adr.GlobalId.Value;
+        var baseVersion = adr.GlobalVersion.Value;
+
+        _ = await globalAdrStore.AddAsync(
+            new GlobalAdr
+            {
+                GlobalId = globalId,
+                Title = adr.Title,
+                CurrentVersion = baseVersion,
+                RegisteredAtUtc = nowUtc,
+                LastUpdatedAtUtc = nowUtc,
+                Instances = [],
+                Versions = [],
+                UpdateProposals = []
+            },
+            ct);
+
+        _ = await globalAdrStore.AddVersionAsync(
+            new GlobalAdrVersion
+            {
+                GlobalId = globalId,
+                VersionNumber = baseVersion,
+                Title = adr.Title,
+                MarkdownContent = adr.RawMarkdown,
+                CreatedAtUtc = nowUtc
+            },
+            ct);
+
+        _ = await globalAdrStore.UpsertInstanceAsync(
+            new GlobalAdrInstance
+            {
+                GlobalId = globalId,
+                RepositoryId = repository.Id,
+                LocalAdrNumber = adr.Number,
+                RepoRelativePath = adr.RepoRelativePath,
+                LastKnownStatus = adr.Status,
+                BaseTemplateVersion = baseVersion,
+                HasLocalChanges = false,
+                UpdateAvailable = false,
+                LastReviewedAtUtc = nowUtc
+            },
+            ct);
+
+        return new GlobalSyncActionResult
+        {
+            Message = $"Restored global registration for ADR-{adr.Number:0000}. Promote again after local template edits to create a proposal."
         };
     }
 
