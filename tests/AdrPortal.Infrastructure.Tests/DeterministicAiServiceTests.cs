@@ -179,6 +179,56 @@ Need deterministic local orchestration.
     }
 
     [Test]
+    public async Task GenerateDraftFromQuestionAsync_ReturnsRecommendationWithOptionsAndActiveConstraintFit()
+    {
+        var service = new DeterministicAiService();
+        IReadOnlyList<Adr> existingAdrs =
+        [
+            CreateAdr(1, "Use Aspire", "use-aspire", AdrStatus.Accepted, "# Use Aspire"),
+            CreateAdr(2, "Try queues", "try-queues", AdrStatus.Proposed, "# Try queues"),
+            CreateAdr(3, "Reject FTP", "reject-ftp", AdrStatus.Rejected, "# Reject FTP")
+        ];
+
+        var result = await service.GenerateDraftFromQuestionAsync(
+            "Should we standardize service-to-service communication on gRPC?",
+            existingAdrs,
+            CancellationToken.None);
+
+        await Assert.That(result.Question).Contains("standardize service-to-service communication", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(result.SuggestedTitle).Contains("Decide how to", StringComparison.Ordinal);
+        await Assert.That(result.SuggestedSlug).IsNotEmpty();
+        await Assert.That(result.Recommendation.Options.Count).IsGreaterThanOrEqualTo(3);
+        await Assert.That(result.Recommendation.Options.All(option => option.Pros.Count > 0)).IsTrue();
+        await Assert.That(result.Recommendation.Options.All(option => option.Cons.Count > 0)).IsTrue();
+        await Assert.That(result.Recommendation.PreferredOption).IsEqualTo(result.Recommendation.Options[0].OptionName);
+        await Assert.That(result.Recommendation.DecisionFit).Contains("Grounded against", StringComparison.Ordinal);
+        await Assert.That(result.Recommendation.GroundingAdrNumbers.Count).IsGreaterThan(0);
+    }
+
+    [Test]
+    public async Task GenerateDraftFromQuestionAsync_ThrowsWhenCancelled()
+    {
+        var service = new DeterministicAiService();
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Exception? exception = null;
+        try
+        {
+            _ = await service.GenerateDraftFromQuestionAsync(
+                "Should we use gRPC?",
+                [],
+                cts.Token);
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception is OperationCanceledException).IsTrue();
+    }
+
+    [Test]
     public async Task FindAffectedAdrsAsync_ReturnsRankedAffectedItems()
     {
         var service = new DeterministicAiService();

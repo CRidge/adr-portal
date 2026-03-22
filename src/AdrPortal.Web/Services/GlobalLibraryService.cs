@@ -101,7 +101,7 @@ public sealed class GlobalLibraryService(
                     Id = proposal.Id,
                     GlobalId = proposal.GlobalId,
                     RepositoryId = proposal.RepositoryId,
-                    RepositoryDisplayName = ResolveRepositoryDisplayName(repositoryById, proposal.RepositoryId),
+                    RepositoryDisplayName = ResolveProposalDisplayName(repositoryById, proposal),
                     LocalAdrNumber = proposal.LocalAdrNumber,
                     ProposedFromVersion = proposal.ProposedFromVersion,
                     ProposedTitle = proposal.ProposedTitle,
@@ -326,6 +326,80 @@ public sealed class GlobalLibraryService(
         return new GlobalSyncActionResult
         {
             Message = $"Created a pending library update proposal from ADR-{currentAdr.Number:0000}."
+        };
+    }
+
+    /// <summary>
+    /// Adds a pending repository-to-library proposal from a global question-generated draft.
+    /// </summary>
+    /// <param name="globalId">Global ADR identifier.</param>
+    /// <param name="proposedTitle">Generated proposal title.</param>
+    /// <param name="proposedMarkdownContent">Generated proposal markdown content.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Outcome message.</returns>
+    public async Task<GlobalSyncActionResult> AddQuestionProposalAsync(
+        Guid globalId,
+        string proposedTitle,
+        string proposedMarkdownContent,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(proposedTitle))
+        {
+            throw new ArgumentException("Proposed title is required.", nameof(proposedTitle));
+        }
+
+        if (string.IsNullOrWhiteSpace(proposedMarkdownContent))
+        {
+            throw new ArgumentException("Proposed markdown content is required.", nameof(proposedMarkdownContent));
+        }
+
+        ct.ThrowIfCancellationRequested();
+        var globalAdr = await globalAdrStore.GetByIdAsync(globalId, ct);
+        if (globalAdr is null)
+        {
+            throw new InvalidOperationException($"Global ADR '{globalId}' was not found.");
+        }
+
+        var anchorRepositoryId = await ResolveQuestionProposalRepositoryIdAsync(globalId, ct);
+        var pendingProposals = await globalAdrStore.GetUpdateProposalsAsync(globalId, ct);
+        var existing = pendingProposals.FirstOrDefault(
+            proposal => proposal.IsPending
+                && proposal.LocalAdrNumber == 0);
+
+        if (existing is not null)
+        {
+            _ = await globalAdrStore.UpdateProposalAsync(
+                CopyProposal(
+                    existing,
+                    isPending: true,
+                    proposedFromVersion: globalAdr.CurrentVersion,
+                    proposedTitle: proposedTitle.Trim(),
+                    proposedMarkdownContent: proposedMarkdownContent.Trim()),
+                ct);
+
+            return new GlobalSyncActionResult
+            {
+                Message = "Updated existing pending question proposal for this global ADR."
+            };
+        }
+
+        _ = await globalAdrStore.AddUpdateProposalAsync(
+            new GlobalAdrUpdateProposal
+            {
+                GlobalId = globalId,
+                RepositoryId = anchorRepositoryId,
+                LocalAdrNumber = 0,
+                ProposedFromVersion = globalAdr.CurrentVersion,
+                ProposedTitle = proposedTitle.Trim(),
+                ProposedMarkdownContent = proposedMarkdownContent.Trim(),
+                IsPending = true,
+                CreatedAtUtc = DateTime.UtcNow
+            },
+            ct);
+
+        return new GlobalSyncActionResult
+        {
+            Message = "Created pending question proposal for this global ADR."
         };
     }
 
@@ -720,6 +794,18 @@ public sealed class GlobalLibraryService(
         return $"Repository {repositoryId}";
     }
 
+    private static string ResolveProposalDisplayName(
+        IReadOnlyDictionary<int, ManagedRepository> repositoriesById,
+        GlobalAdrUpdateProposal proposal)
+    {
+        if (proposal.LocalAdrNumber == 0)
+        {
+            return "Global question draft";
+        }
+
+        return ResolveRepositoryDisplayName(repositoriesById, proposal.RepositoryId);
+    }
+
     private static string BuildBaselineDiff(IReadOnlyList<GlobalAdrVersionViewModel> versions)
     {
         if (versions.Count < 2)
@@ -813,6 +899,52 @@ public sealed class GlobalLibraryService(
             IsPending = isPending,
             CreatedAtUtc = source.CreatedAtUtc
         };
+    }
+
+    private static GlobalAdrUpdateProposal CopyProposal(
+        GlobalAdrUpdateProposal source,
+        bool isPending,
+        int proposedFromVersion,
+        string proposedTitle,
+        string proposedMarkdownContent)
+    {
+        return new GlobalAdrUpdateProposal
+        {
+            Id = source.Id,
+            GlobalId = source.GlobalId,
+            RepositoryId = source.RepositoryId,
+            LocalAdrNumber = source.LocalAdrNumber,
+            ProposedFromVersion = proposedFromVersion,
+            ProposedTitle = proposedTitle,
+            ProposedMarkdownContent = proposedMarkdownContent,
+            IsPending = isPending,
+            CreatedAtUtc = source.CreatedAtUtc
+        };
+    }
+
+    private async Task<int> ResolveQuestionProposalRepositoryIdAsync(Guid globalId, CancellationToken ct)
+    {
+        var instances = await globalAdrStore.GetInstancesAsync(globalId, ct);
+        var anchoredInstance = instances
+            .OrderBy(instance => instance.RepositoryId)
+            .ThenBy(instance => instance.LocalAdrNumber)
+            .FirstOrDefault();
+        if (anchoredInstance is not null)
+        {
+            return anchoredInstance.RepositoryId;
+        }
+
+        var repositories = await managedRepositoryStore.GetAllAsync(ct);
+        var anchoredRepository = repositories
+            .OrderBy(repository => repository.Id)
+            .FirstOrDefault();
+        if (anchoredRepository is not null)
+        {
+            return anchoredRepository.Id;
+        }
+
+        throw new InvalidOperationException(
+            "At least one managed repository is required before creating global question proposals.");
     }
 
     private async Task QueueAndProcessAsync(ManagedRepository repository, Adr adr, CancellationToken ct)

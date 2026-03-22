@@ -29,6 +29,9 @@ public sealed class ExternalAiService(
     private static readonly Regex JsonBlockRegex = new(
         @"\{[\s\S]*\}",
         RegexOptions.Compiled);
+    private static readonly Regex SlugSanitizerRegex = new(
+        @"[^a-z0-9]+",
+        RegexOptions.Compiled);
 
     /// <summary>
     /// Evaluates a draft ADR with external chat completion and optional deterministic fallback.
@@ -145,6 +148,79 @@ public sealed class ExternalAiService(
     }
 
     /// <summary>
+    /// Generates ADR draft guidance from a repository question using external AI and deterministic fallback.
+    /// </summary>
+    /// <param name="question">User-authored ADR question.</param>
+    /// <param name="existingAdrs">Existing ADR corpus used for grounding and constraints.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Generated ADR draft guidance with recommendation options.</returns>
+    public async Task<AdrQuestionGenerationResult> GenerateDraftFromQuestionAsync(
+        string question,
+        IReadOnlyList<Adr> existingAdrs,
+        CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(question);
+        ArgumentNullException.ThrowIfNull(existingAdrs);
+        ct.ThrowIfCancellationRequested();
+
+        var trimmedQuestion = question.Trim();
+        var activeConstraints = existingAdrs
+            .Where(adr => adr.Status is AdrStatus.Proposed or AdrStatus.Accepted)
+            .OrderBy(adr => adr.Number)
+            .ToArray();
+        var constraintSet = activeConstraints.Length > 0 ? activeConstraints : existingAdrs;
+
+        if (chatClient is null)
+        {
+            var fallback = await deterministicAiService.GenerateDraftFromQuestionAsync(trimmedQuestion, constraintSet, ct);
+            return fallback with
+            {
+                Recommendation = fallback.Recommendation with
+                {
+                    IsFallback = true,
+                    FallbackReason = externalUnavailableReason
+                }
+            };
+        }
+
+        var messages = BuildQuestionMessages(trimmedQuestion, constraintSet);
+        try
+        {
+            var response = await chatClient.GetResponseAsync(messages, null, ct);
+            var payload = response.Text;
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                throw new InvalidOperationException("AI response payload was empty.");
+            }
+
+            var parsed = ParseQuestionResult(payload, trimmedQuestion);
+            return parsed with
+            {
+                Recommendation = parsed.Recommendation with
+                {
+                    IsFallback = false,
+                    FallbackReason = null
+                }
+            };
+        }
+        catch (Exception exception) when (CanFallback(exception))
+        {
+            logger.LogWarning(
+                exception,
+                "External AI GenerateDraftFromQuestionAsync failed; using deterministic fallback.");
+            var fallback = await deterministicAiService.GenerateDraftFromQuestionAsync(trimmedQuestion, constraintSet, ct);
+            return fallback with
+            {
+                Recommendation = fallback.Recommendation with
+                {
+                    IsFallback = true,
+                    FallbackReason = "External AI call failed; deterministic fallback used."
+                }
+            };
+        }
+    }
+
+    /// <summary>
     /// Delegates bootstrap workflows to deterministic implementation.
     /// </summary>
     /// <param name="repoRootPath">Repository root path.</param>
@@ -217,6 +293,40 @@ public sealed class ExternalAiService(
         ];
     }
 
+    private static List<ChatMessage> BuildQuestionMessages(string question, IReadOnlyList<Adr> existingAdrs)
+    {
+        return
+        [
+            new ChatMessage(
+                ChatRole.System,
+                """
+                You are an ADR authoring assistant for repository workflows. Return strict JSON only.
+                Respond with object fields:
+                question (string),
+                suggestedTitle (string),
+                suggestedSlug (string, lowercase letters/numbers/hyphens),
+                problemStatement (string),
+                decisionDrivers (string[]),
+                recommendation (object with:
+                  preferredOption (string),
+                  recommendationSummary (string),
+                  decisionFit (string),
+                  options (array of { optionName, summary, score, rationale, pros[], cons[], tradeOffs[] }),
+                  risks (string[]),
+                  suggestedAlternatives (string[]),
+                  groundingAdrNumbers (int[])
+                ).
+                Provide at least three distinct recommendation options whenever possible.
+                Each option must include at least one pro and one con.
+                decisionFit must explicitly reference repository ADR constraints.
+                No markdown or prose outside JSON.
+                """),
+            new ChatMessage(
+                ChatRole.User,
+                BuildQuestionPrompt(question, existingAdrs))
+        ];
+    }
+
     private static string BuildEvaluatePrompt(AdrDraftForAnalysis draftAdr, IReadOnlyList<Adr> existingAdrs)
     {
         var builder = new System.Text.StringBuilder();
@@ -250,6 +360,22 @@ public sealed class ExternalAiService(
         builder.AppendLine($"- BodyMarkdown: {draftAdr.BodyMarkdown}");
         builder.AppendLine();
         builder.AppendLine("Existing ADRs:");
+        foreach (var adr in existingAdrs.OrderBy(adr => adr.Number))
+        {
+            builder.AppendLine(
+                $"- ADR-{adr.Number:0000} | {adr.Status} | {adr.Title} | {adr.Slug}");
+        }
+
+        return builder.ToString();
+    }
+
+    private static string BuildQuestionPrompt(string question, IReadOnlyList<Adr> existingAdrs)
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.AppendLine("Repository ADR question:");
+        builder.AppendLine($"- Question: {question}");
+        builder.AppendLine();
+        builder.AppendLine("Existing ADR constraints (prefer active ADRs when grounding):");
         foreach (var adr in existingAdrs.OrderBy(adr => adr.Number))
         {
             builder.AppendLine(
@@ -313,6 +439,75 @@ public sealed class ExternalAiService(
             Summary = summary,
             Items = items,
             IsFallback = false
+        };
+    }
+
+    private static AdrQuestionGenerationResult ParseQuestionResult(string payload, string fallbackQuestion)
+    {
+        var json = ExtractJson(payload);
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var question = root.TryGetProperty("question", out var questionProperty) && questionProperty.ValueKind is JsonValueKind.String
+            ? (questionProperty.GetString() ?? string.Empty).Trim()
+            : fallbackQuestion;
+        if (string.IsNullOrWhiteSpace(question))
+        {
+            question = fallbackQuestion;
+        }
+
+        var suggestedTitle = RequiredString(root, "suggestedTitle");
+        var suggestedSlug = NormalizeSlug(RequiredString(root, "suggestedSlug"));
+        var problemStatement = RequiredString(root, "problemStatement");
+        var decisionDrivers = ParseStringArray(root, "decisionDrivers");
+        var recommendation = ParseQuestionRecommendation(root);
+        return new AdrQuestionGenerationResult
+        {
+            Question = question,
+            SuggestedTitle = suggestedTitle,
+            SuggestedSlug = suggestedSlug,
+            ProblemStatement = problemStatement,
+            DecisionDrivers = decisionDrivers,
+            Recommendation = recommendation
+        };
+    }
+
+    private static AdrEvaluationRecommendation ParseQuestionRecommendation(JsonElement root)
+    {
+        if (!root.TryGetProperty("recommendation", out var recommendation)
+            || recommendation.ValueKind is not JsonValueKind.Object)
+        {
+            throw new InvalidOperationException("AI response property 'recommendation' is required and must be an object.");
+        }
+
+        var preferredOption = RequiredString(recommendation, "preferredOption");
+        var recommendationSummary = RequiredString(recommendation, "recommendationSummary");
+        var decisionFit = RequiredString(recommendation, "decisionFit");
+        var options = ParseOptions(recommendation);
+        var risks = ParseStringArray(recommendation, "risks");
+        var suggestedAlternatives = ParseStringArray(recommendation, "suggestedAlternatives");
+        var grounding = ParseIntArray(recommendation, "groundingAdrNumbers");
+        if (options.Count < 3)
+        {
+            throw new InvalidOperationException("AI response recommendation options array must contain at least three options.");
+        }
+
+        if (!options.Any(
+                option => string.Equals(option.OptionName, preferredOption, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("AI response preferred option must match one of the option names.");
+        }
+
+        return new AdrEvaluationRecommendation
+        {
+            PreferredOption = preferredOption,
+            RecommendationSummary = recommendationSummary,
+            DecisionFit = decisionFit,
+            Options = options,
+            Risks = risks,
+            SuggestedAlternatives = suggestedAlternatives,
+            GroundingAdrNumbers = grounding,
+            IsFallback = false,
+            FallbackReason = null
         };
     }
 
@@ -495,6 +690,13 @@ public sealed class ExternalAiService(
             "low" => AdrImpactLevel.Low,
             _ => throw new InvalidOperationException($"Unsupported impact level '{raw}'.")
         };
+    }
+
+    private static string NormalizeSlug(string raw)
+    {
+        var lowered = raw.Trim().ToLowerInvariant();
+        var collapsed = SlugSanitizerRegex.Replace(lowered, "-").Trim('-');
+        return string.IsNullOrWhiteSpace(collapsed) ? "adr-question-draft" : collapsed;
     }
 
     private static IChatClient CreateChatClient(string token, AiProviderOptions options)

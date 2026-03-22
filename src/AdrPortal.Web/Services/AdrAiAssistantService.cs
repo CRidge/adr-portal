@@ -85,6 +85,36 @@ public sealed class AdrAiAssistantService(
     }
 
     /// <summary>
+    /// Generates ADR draft guidance from a repository question prompt.
+    /// </summary>
+    /// <param name="repositoryId">Managed repository identifier.</param>
+    /// <param name="question">Question text used to generate a proposed ADR draft.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Generated draft guidance when repository exists; otherwise <see langword="null"/>.</returns>
+    public async Task<AdrQuestionGenerationResult?> GenerateDraftFromQuestionAsync(
+        int repositoryId,
+        string question,
+        CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(question);
+        ct.ThrowIfCancellationRequested();
+
+        var resolved = await ResolveRepositoryAsync(repositoryId, ct);
+        if (resolved is null)
+        {
+            return null;
+        }
+
+        var (_, adrRepository) = resolved.Value;
+        var existingAdrs = await adrRepository.GetAllAsync(ct);
+        var acceptedConstraints = existingAdrs
+            .Where(adr => adr.Status is AdrStatus.Accepted)
+            .ToArray();
+        var constraintSet = acceptedConstraints.Length > 0 ? acceptedConstraints : existingAdrs;
+        return await aiService.GenerateDraftFromQuestionAsync(question, constraintSet, ct);
+    }
+
+    /// <summary>
     /// Resolves repository metadata and its ADR file repository.
     /// </summary>
     /// <param name="repositoryId">Managed repository identifier.</param>

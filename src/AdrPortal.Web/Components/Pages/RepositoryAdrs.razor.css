@@ -193,6 +193,114 @@
     color: var(--app-muted);
 }
 
+.adr-question {
+    max-width: 72rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.adr-question__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.adr-question__header h2 {
+    margin: 0;
+}
+
+.adr-question__lead {
+    margin: 0;
+    color: var(--app-muted);
+    font-size: 0.88rem;
+}
+
+.adr-question__links {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.adr-question__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.adr-question__label {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--app-heading);
+}
+
+.adr-question__input {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    padding: 0.6rem 0.7rem;
+    font: inherit;
+    color: var(--app-text);
+    background-color: var(--app-surface);
+    resize: vertical;
+    min-height: 5.5rem;
+}
+
+.adr-question__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.adr-question-result {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    padding: 0.8rem;
+    background-color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.adr-question-result h3,
+.adr-question-result h4,
+.adr-question-result p {
+    margin: 0;
+}
+
+.adr-question-result__fit {
+    color: var(--app-muted);
+    font-size: 0.86rem;
+}
+
+.adr-question-result__fallback {
+    color: #1d4ed8;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.adr-question-result__section ul {
+    margin: 0.35rem 0 0 1.2rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.adr-question-result__section li p {
+    margin: 0.15rem 0 0 0;
+    font-size: 0.83rem;
+    color: var(--app-muted);
+}
+
+.adr-question-result__sublist {
+    margin: 0.2rem 0 0.2rem 1.1rem !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
 .adr-bootstrap {
     display: flex;
     flex-direction: column;
@@ -538,6 +646,10 @@
 
     .adr-page__actions {
         flex-wrap: wrap;
+    }
+
+    .adr-question__header {
+        flex-direction: column;
     }
 }
 

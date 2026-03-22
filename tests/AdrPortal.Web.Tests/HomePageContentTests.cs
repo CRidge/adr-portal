@@ -113,6 +113,8 @@ public class HomePageContentTests
         await Assert.That(listMarkup.Contains("+ New ADR", StringComparison.Ordinal)).IsTrue();
         await Assert.That(listMarkup.Contains("Bootstrap ADRs with AI", StringComparison.Ordinal)).IsTrue();
         await Assert.That(listMarkup.Contains("Accept selected proposals", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(listMarkup.Contains("Add ADR question", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(listMarkup.Contains("Generate proposed ADR draft", StringComparison.Ordinal)).IsTrue();
         await Assert.That(listMarkup.Contains("Queued", StringComparison.Ordinal)).IsTrue();
         await Assert.That(listMarkup.Contains("Git/PR workflow", StringComparison.Ordinal)).IsTrue();
         await Assert.That(listMarkup.Contains("Sync with global library", StringComparison.Ordinal)).IsTrue();
@@ -170,6 +172,9 @@ public class HomePageContentTests
         await Assert.That(detailMarkup.Contains("@page \"/global/{GlobalId:guid}\"", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Version history", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Baseline diff viewer", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Add ADR question", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Guidance-only generation", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Generate proposal", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Repo → library proposals", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Library → repos instances", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Review repository-authored template changes here.", StringComparison.Ordinal)).IsTrue();

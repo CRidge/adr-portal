@@ -1,5 +1,6 @@
 @page "/global/{GlobalId:guid}"
 @inject GlobalLibraryService GlobalLibraryService
+@inject AdrQuestionDomainService AdrQuestionDomainService
 
 <PageTitle>@GetPageTitle()</PageTitle>
 
@@ -38,6 +39,91 @@ else
             <span><strong>Update available:</strong> @detail.UpdateAvailableCount</span>
             <span><strong>Instances:</strong> @detail.Instances.Count</span>
         </div>
+    </section>
+
+    <section class="panel global-adr-panel">
+        <header class="global-adr-panel__header">
+            <h2>Add ADR question</h2>
+            <small>Guidance-only generation</small>
+        </header>
+        <p class="global-adr-panel__help">
+            Ask a question to draft a repository proposal for this global ADR. Existing global versions are used as guidance only.
+            The draft is created as a pending <strong>Repo → library proposal</strong> for manual review.
+        </p>
+        <div class="global-adr-question">
+            <label class="global-adr-question__label" for="global-adr-question">Question prompt</label>
+            <InputTextArea id="global-adr-question"
+                           class="global-adr-question__input"
+                           @bind-Value="globalQuestionPrompt"
+                           @bind-Value:event="oninput"
+                           placeholder="Example: What unit test framework should we recommend for .NET repositories?" />
+        </div>
+        <div class="global-adr-question__actions">
+            <button type="button"
+                    class="global-adr-button global-adr-button--review"
+                    @onclick="GenerateGlobalQuestionProposalAsync"
+                    disabled="@isGeneratingGlobalQuestionDraft">
+                @(isGeneratingGlobalQuestionDraft ? "Generating proposal…" : "Generate proposal")
+            </button>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(globalQuestionMessage))
+        {
+            <p class="@(globalQuestionError ? "repo-status repo-status--error" : "repo-status")">@globalQuestionMessage</p>
+        }
+        @if (globalQuestionResult is not null)
+        {
+            <section class="global-adr-question-result">
+                <h3>Generated recommendation</h3>
+                <p><strong>Suggested option:</strong> @globalQuestionResult.SuggestedOption</p>
+                <p>@globalQuestionResult.SuggestedOptionRationale</p>
+                <p class="global-adr-question-result__fit">@globalQuestionResult.Recommendation.DecisionFit</p>
+                @if (globalQuestionResult.Recommendation.IsFallback)
+                {
+                    <p class="global-adr-question-result__fallback">
+                        Deterministic fallback active
+                        @if (!string.IsNullOrWhiteSpace(globalQuestionResult.Recommendation.FallbackReason))
+                        {
+                            <span>· @globalQuestionResult.Recommendation.FallbackReason</span>
+                        }
+                    </p>
+                }
+                @if (globalQuestionResult.ConsideredOptions.Count > 0)
+                {
+                    <div class="global-adr-question-result__section">
+                        <h4>Options with pros and cons</h4>
+                        <ul>
+                            @foreach (var option in globalQuestionResult.ConsideredOptions)
+                            {
+                                <li>
+                                    <strong>@option.Name</strong>
+                                    <p>@option.Summary</p>
+                                    @if (option.Pros.Count > 0)
+                                    {
+                                        <p><strong>Pros</strong></p>
+                                        <ul class="global-adr-question-result__sublist">
+                                            @foreach (var pro in option.Pros)
+                                            {
+                                                <li>@pro</li>
+                                            }
+                                        </ul>
+                                    }
+                                    @if (option.Cons.Count > 0)
+                                    {
+                                        <p><strong>Cons</strong></p>
+                                        <ul class="global-adr-question-result__sublist">
+                                            @foreach (var con in option.Cons)
+                                            {
+                                                <li>@con</li>
+                                            }
+                                        </ul>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </section>
+        }
     </section>
 
     <section class="panel global-adr-panel">
@@ -109,7 +195,16 @@ else
                     {
                         <tr>
                             <td>
-                                <strong>@proposal.RepositoryDisplayName · ADR-@proposal.LocalAdrNumber.ToString("0000")</strong>
+                                <strong>
+                                    @if (proposal.LocalAdrNumber == 0)
+                                    {
+                                        @($"{proposal.RepositoryDisplayName} · Question proposal")
+                                    }
+                                    else
+                                    {
+                                        @($"{proposal.RepositoryDisplayName} · ADR-{proposal.LocalAdrNumber:0000}")
+                                    }
+                                </strong>
                                 <div class="global-adr-table__meta">@proposal.ProposedTitle</div>
                             </td>
                             <td>v@proposal.ProposedFromVersion</td>
@@ -229,6 +324,11 @@ else
     private string? proposalMessage;
     private bool proposalError;
     private bool isApplyingProposal;
+    private string globalQuestionPrompt = string.Empty;
+    private string? globalQuestionMessage;
+    private bool globalQuestionError;
+    private bool isGeneratingGlobalQuestionDraft;
+    private AdrQuestionDraftResult? globalQuestionResult;
     private string? instanceMessage;
     private bool instanceError;
     private bool isApplyingInstance;
@@ -244,6 +344,11 @@ else
         proposalMessage = null;
         proposalError = false;
         isApplyingProposal = false;
+        globalQuestionPrompt = string.Empty;
+        globalQuestionMessage = null;
+        globalQuestionError = false;
+        isGeneratingGlobalQuestionDraft = false;
+        globalQuestionResult = null;
         instanceMessage = null;
         instanceError = false;
         isApplyingInstance = false;
@@ -271,6 +376,81 @@ else
         catch (IOException exception)
         {
             loadError = exception.Message;
+        }
+    }
+
+    /// <summary>
+    /// Generates a guidance-only ADR proposal from a global-library question prompt.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task GenerateGlobalQuestionProposalAsync()
+    {
+        if (isGeneratingGlobalQuestionDraft || detail is null)
+        {
+            return;
+        }
+
+        var trimmedQuestion = globalQuestionPrompt.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedQuestion))
+        {
+            globalQuestionError = true;
+            globalQuestionMessage = "Enter a question prompt before generating a proposal.";
+            return;
+        }
+
+        isGeneratingGlobalQuestionDraft = true;
+        globalQuestionError = false;
+        globalQuestionMessage = null;
+        globalQuestionResult = null;
+
+        try
+        {
+            var generated = await AdrQuestionDomainService.GenerateForGlobalLibraryAsync(
+                GlobalId,
+                trimmedQuestion,
+                CancellationToken.None);
+            if (generated is null)
+            {
+                globalQuestionError = true;
+                globalQuestionMessage = $"Global ADR '{GlobalId}' was not found.";
+                return;
+            }
+
+            _ = await GlobalLibraryService.AddQuestionProposalAsync(
+                GlobalId,
+                generated.Title,
+                generated.DraftMarkdownBody,
+                CancellationToken.None);
+
+            globalQuestionResult = generated;
+            globalQuestionPrompt = string.Empty;
+            globalQuestionError = false;
+            globalQuestionMessage = "Created a pending Repo → library proposal from the generated draft.";
+            detail = await GlobalLibraryService.GetDetailAsync(GlobalId, CancellationToken.None);
+        }
+        catch (InvalidOperationException exception)
+        {
+            globalQuestionError = true;
+            globalQuestionMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            globalQuestionError = true;
+            globalQuestionMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            globalQuestionError = true;
+            globalQuestionMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            globalQuestionError = true;
+            globalQuestionMessage = exception.Message;
+        }
+        finally
+        {
+            isGeneratingGlobalQuestionDraft = false;
         }
     }
 

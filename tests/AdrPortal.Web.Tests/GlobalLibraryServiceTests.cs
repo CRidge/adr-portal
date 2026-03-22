@@ -453,6 +453,122 @@ public class GlobalLibraryServiceTests
     }
 
     [Test]
+    public async Task AddQuestionProposalAsync_CreatesPendingProposalAnchoredToExistingInstanceRepository()
+    {
+        var globalId = Guid.Parse("12345678-1234-1234-1234-123456789abc");
+        var globalStore = new FakeGlobalAdrStore(
+            globalAdrs:
+            [
+                new GlobalAdr
+                {
+                    GlobalId = globalId,
+                    Title = "Use testing framework guidance",
+                    CurrentVersion = 3,
+                    RegisteredAtUtc = DateTime.UtcNow.AddDays(-10),
+                    LastUpdatedAtUtc = DateTime.UtcNow.AddDays(-1)
+                }
+            ],
+            versions: [],
+            proposals: [],
+            instances:
+            [
+                new GlobalAdrInstance
+                {
+                    Id = 33,
+                    GlobalId = globalId,
+                    RepositoryId = 901,
+                    LocalAdrNumber = 12,
+                    RepoRelativePath = "docs/adr/adr-0012-testing.md",
+                    LastKnownStatus = AdrStatus.Accepted,
+                    BaseTemplateVersion = 3,
+                    HasLocalChanges = false,
+                    UpdateAvailable = false,
+                    LastReviewedAtUtc = DateTime.UtcNow.AddDays(-1)
+                }
+            ]);
+        var service = CreateService(globalStore);
+
+        var result = await service.AddQuestionProposalAsync(
+            globalId,
+            "Decide: What unit test framework should we use for .NET tests",
+            "# Proposed content",
+            CancellationToken.None);
+
+        await Assert.That(result.Message.Contains("Created pending question proposal", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(globalStore.Proposals.Count).IsEqualTo(1);
+        var proposal = globalStore.Proposals.Single();
+        await Assert.That(proposal.IsPending).IsTrue();
+        await Assert.That(proposal.RepositoryId).IsEqualTo(901);
+        await Assert.That(proposal.LocalAdrNumber).IsEqualTo(0);
+        await Assert.That(proposal.ProposedFromVersion).IsEqualTo(3);
+    }
+
+    [Test]
+    public async Task AddQuestionProposalAsync_UpdatesExistingPendingQuestionProposal()
+    {
+        var globalId = Guid.Parse("22345678-1234-1234-1234-123456789abc");
+        var existingProposal = new GlobalAdrUpdateProposal
+        {
+            Id = 44,
+            GlobalId = globalId,
+            RepositoryId = 905,
+            LocalAdrNumber = 0,
+            ProposedFromVersion = 2,
+            ProposedTitle = "Old question title",
+            ProposedMarkdownContent = "# Old",
+            IsPending = true,
+            CreatedAtUtc = DateTime.UtcNow.AddDays(-2)
+        };
+        var globalStore = new FakeGlobalAdrStore(
+            globalAdrs:
+            [
+                new GlobalAdr
+                {
+                    GlobalId = globalId,
+                    Title = "Use testing guidance",
+                    CurrentVersion = 5,
+                    RegisteredAtUtc = DateTime.UtcNow.AddDays(-10),
+                    LastUpdatedAtUtc = DateTime.UtcNow.AddDays(-1)
+                }
+            ],
+            versions: [],
+            proposals: [existingProposal],
+            instances:
+            [
+                new GlobalAdrInstance
+                {
+                    Id = 34,
+                    GlobalId = globalId,
+                    RepositoryId = 905,
+                    LocalAdrNumber = 14,
+                    RepoRelativePath = "docs/adr/adr-0014-testing.md",
+                    LastKnownStatus = AdrStatus.Accepted,
+                    BaseTemplateVersion = 5,
+                    HasLocalChanges = false,
+                    UpdateAvailable = false,
+                    LastReviewedAtUtc = DateTime.UtcNow.AddDays(-1)
+                }
+            ]);
+        var service = CreateService(globalStore);
+
+        var result = await service.AddQuestionProposalAsync(
+            globalId,
+            "Decide: Updated question title",
+            "# Updated",
+            CancellationToken.None);
+
+        await Assert.That(result.Message.Contains("Updated existing pending question proposal", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(globalStore.Proposals.Count).IsEqualTo(1);
+        var proposal = globalStore.Proposals.Single();
+        await Assert.That(proposal.Id).IsEqualTo(44);
+        await Assert.That(proposal.ProposedTitle).IsEqualTo("Decide: Updated question title");
+        await Assert.That(proposal.ProposedMarkdownContent).IsEqualTo("# Updated");
+        await Assert.That(proposal.ProposedFromVersion).IsEqualTo(5);
+        await Assert.That(proposal.RepositoryId).IsEqualTo(905);
+        await Assert.That(proposal.LocalAdrNumber).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task ApplyUpdateToInstanceAsync_ResetsFlagsAndMovesBaseVersion()
     {
         var globalId = Guid.Parse("88888888-8888-8888-8888-888888888888");

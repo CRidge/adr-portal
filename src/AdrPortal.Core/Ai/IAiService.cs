@@ -30,6 +30,18 @@ public interface IAiService
         CancellationToken ct);
 
     /// <summary>
+    /// Generates ADR draft guidance from a user question in repository context.
+    /// </summary>
+    /// <param name="question">User question used to seed ADR generation.</param>
+    /// <param name="existingAdrs">Existing ADR corpus used for grounding and constraints.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Generated ADR draft guidance including recommendation options.</returns>
+    Task<AdrQuestionGenerationResult> GenerateDraftFromQuestionAsync(
+        string question,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
+        CancellationToken ct);
+
+    /// <summary>
     /// Scans a codebase and returns structured ADR bootstrap proposals.
     /// </summary>
     /// <param name="repoRootPath">Absolute repository root path to analyze.</param>

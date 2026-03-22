@@ -219,6 +219,64 @@ Need deterministic orchestration.
         await Assert.That(aiService.AffectedCallCount).IsEqualTo(0);
     }
 
+    [Test]
+    public async Task GenerateDraftFromQuestionAsync_UsesActiveAdrConstraints()
+    {
+        var repository = CreateRepository(id: 305);
+        IReadOnlyList<Adr> existingAdrs =
+        [
+            CreateAdr(1, "Accepted baseline", "accepted-baseline", AdrStatus.Accepted, "# Accepted baseline"),
+            CreateAdr(2, "Proposed experiment", "proposed-experiment", AdrStatus.Proposed, "# Proposed experiment"),
+            CreateAdr(3, "Rejected attempt", "rejected-attempt", AdrStatus.Rejected, "# Rejected attempt")
+        ];
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var adrRepository = new FakeAdrFileRepository(existingAdrs);
+        var factory = new FakeMadrRepositoryFactory(adrRepository);
+        var aiService = new RecordingAiService();
+        var service = new AdrAiAssistantService(managedStore, factory, aiService);
+
+        var result = await service.GenerateDraftFromQuestionAsync(
+            repository.Id,
+            "Should we standardize service communication on gRPC?",
+            CancellationToken.None);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(aiService.QuestionCallCount).IsEqualTo(1);
+        await Assert.That(aiService.LastQuestion).IsEqualTo("Should we standardize service communication on gRPC?");
+        await Assert.That(aiService.LastQuestionExistingAdrs.Count).IsEqualTo(1);
+        await Assert.That(aiService.LastQuestionExistingAdrs.Any(adr => adr.Number == 1)).IsTrue();
+        await Assert.That(aiService.LastQuestionExistingAdrs.Any(adr => adr.Number == 2)).IsFalse();
+        await Assert.That(aiService.LastQuestionExistingAdrs.Any(adr => adr.Number == 3)).IsFalse();
+    }
+
+    [Test]
+    public async Task GenerateDraftFromQuestionAsync_UsesAcceptedOnlyWhenPresent()
+    {
+        var repository = CreateRepository(id: 306);
+        IReadOnlyList<Adr> existingAdrs =
+        [
+            CreateAdr(1, "Accepted baseline", "accepted-baseline", AdrStatus.Accepted, "# Accepted baseline"),
+            CreateAdr(2, "Proposed experiment", "proposed-experiment", AdrStatus.Proposed, "# Proposed experiment"),
+            CreateAdr(3, "Rejected attempt", "rejected-attempt", AdrStatus.Rejected, "# Rejected attempt")
+        ];
+
+        var managedStore = new FakeManagedRepositoryStore(repository);
+        var adrRepository = new FakeAdrFileRepository(existingAdrs);
+        var factory = new FakeMadrRepositoryFactory(adrRepository);
+        var aiService = new RecordingAiService();
+        var service = new AdrAiAssistantService(managedStore, factory, aiService);
+
+        _ = await service.GenerateDraftFromQuestionAsync(
+            repository.Id,
+            "Should we standardize service communication on gRPC?",
+            CancellationToken.None);
+
+        await Assert.That(aiService.QuestionCallCount).IsEqualTo(1);
+        await Assert.That(aiService.LastQuestionExistingAdrs.Count).IsEqualTo(1);
+        await Assert.That(aiService.LastQuestionExistingAdrs.Single().Number).IsEqualTo(1);
+    }
+
     private static ManagedRepository CreateRepository(int id)
     {
         return new ManagedRepository
@@ -350,6 +408,9 @@ Need deterministic orchestration.
     {
         public int EvaluateCallCount { get; private set; }
         public int AffectedCallCount { get; private set; }
+        public int QuestionCallCount { get; private set; }
+        public string? LastQuestion { get; private set; }
+        public IReadOnlyList<Adr> LastQuestionExistingAdrs { get; private set; } = [];
         public AdrDraftForAnalysis? LastEvaluationDraft { get; private set; }
         public IReadOnlyList<Adr> LastEvaluationExistingAdrs { get; private set; } = [];
         public AdrDraftForAnalysis? LastAffectedDraft { get; private set; }
@@ -435,6 +496,75 @@ Need deterministic orchestration.
                     Summary = $"Identified {items.Length} affected ADR(s).",
                     IsFallback = true,
                     FallbackReason = "Configured deterministic AI provider."
+                });
+        }
+
+        public Task<AdrQuestionGenerationResult> GenerateDraftFromQuestionAsync(
+            string question,
+            IReadOnlyList<Adr> existingAdrs,
+            CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            QuestionCallCount++;
+            LastQuestion = question;
+            LastQuestionExistingAdrs = existingAdrs;
+
+            return Task.FromResult(
+                new AdrQuestionGenerationResult
+                {
+                    Question = question,
+                    SuggestedTitle = "Decide gRPC standardization",
+                    SuggestedSlug = "decide-grpc-standardization",
+                    ProblemStatement = $"Question: {question}",
+                    DecisionDrivers =
+                    [
+                        "Capture interoperability constraints",
+                        "Respect active ADR baselines"
+                    ],
+                    Recommendation = new AdrEvaluationRecommendation
+                    {
+                        PreferredOption = "Adopt gRPC",
+                        RecommendationSummary = "Adopt gRPC for internal services.",
+                        DecisionFit = $"Grounded against {existingAdrs.Count} active ADR(s).",
+                        Options =
+                        [
+                            new AdrOptionRecommendation
+                            {
+                                OptionName = "Adopt gRPC",
+                                Summary = "Standardized RPC model.",
+                                Score = 0.91,
+                                Rationale = "Best deterministic fit.",
+                                Pros = ["Strong contracts"],
+                                Cons = ["Operational migration effort"],
+                                TradeOffs = ["Consistency vs migration"]
+                            },
+                            new AdrOptionRecommendation
+                            {
+                                OptionName = "Keep REST",
+                                Summary = "Maintain current approach.",
+                                Score = 0.63,
+                                Rationale = "Lower change cost.",
+                                Pros = ["Low disruption"],
+                                Cons = ["Inconsistent contracts"],
+                                TradeOffs = ["Stability vs consistency"]
+                            },
+                            new AdrOptionRecommendation
+                            {
+                                OptionName = "Hybrid rollout",
+                                Summary = "Adopt gRPC incrementally.",
+                                Score = 0.72,
+                                Rationale = "Balances risk and direction.",
+                                Pros = ["Phased transition"],
+                                Cons = ["Dual-stack complexity"],
+                                TradeOffs = ["Lower immediate risk vs longer migration"]
+                            }
+                        ],
+                        Risks = ["Migration scope risk"],
+                        SuggestedAlternatives = ["Delay decision"],
+                        GroundingAdrNumbers = existingAdrs.Select(adr => adr.Number).ToArray(),
+                        IsFallback = true,
+                        FallbackReason = "Configured deterministic AI provider."
+                    }
                 });
         }
     }

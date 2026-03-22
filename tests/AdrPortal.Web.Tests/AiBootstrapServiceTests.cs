@@ -417,6 +417,35 @@ public class AiBootstrapServiceTests
                 });
         }
 
+        public Task<AdrQuestionGenerationResult> GenerateDraftFromQuestionAsync(
+            string question,
+            IReadOnlyList<Adr> existingAdrs,
+            CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(
+                new AdrQuestionGenerationResult
+                {
+                    Question = question,
+                    SuggestedTitle = "Question draft",
+                    SuggestedSlug = "question-draft",
+                    ProblemStatement = question,
+                    DecisionDrivers = [],
+                    Recommendation = new AdrEvaluationRecommendation
+                    {
+                        PreferredOption = "N/A",
+                        RecommendationSummary = "N/A",
+                        DecisionFit = "N/A",
+                        Options = [],
+                        Risks = [],
+                        SuggestedAlternatives = [],
+                        GroundingAdrNumbers = [],
+                        IsFallback = true,
+                        FallbackReason = "Not used by bootstrap tests."
+                    }
+                });
+        }
+
         public Task<AdrBootstrapProposalSet> BootstrapAdrsFromCodebaseAsync(string repoRootPath, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();

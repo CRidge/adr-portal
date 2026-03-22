@@ -1,6 +1,7 @@
 @page "/repos/{RepositoryId:int}"
 @inject AiBootstrapService AiBootstrapService
 @inject AdrDocumentService AdrDocumentService
+@inject AdrQuestionDomainService AdrQuestionDomainService
 @inject AdrListViewService AdrListViewService
 @inject RepositoryInboxUploadService RepositoryInboxUploadService
 @using AdrPortal.Core.Ai
@@ -56,6 +57,108 @@ else
                 <span><strong>Inbox:</strong> disabled</span>
             }
         </div>
+    </section>
+
+    <section id="add-adr-question" class="panel adr-question">
+        <header class="adr-question__header">
+            <div>
+                <p class="eyebrow">Repository ADR drafting</p>
+                <h2>Add ADR question</h2>
+            </div>
+            @if (generatedQuestionDraft is not null)
+            {
+                <div class="adr-question__links">
+                    <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}/adr/{generatedQuestionDraft.Number}/edit")">
+                        Review ADR draft
+                    </a>
+                    <a class="adr-page__settings-link" href="@($"/repos/{RepositoryId}/adr/{generatedQuestionDraft.Number}")">
+                        Open ADR detail
+                    </a>
+                </div>
+            }
+        </header>
+        <p class="adr-question__lead">
+            Enter a repository architecture question. The generated ADR draft will stay in
+            <span class="state-badge proposed">proposed</span> status for review and explicit acceptance later.
+            In repository mode, generation uses accepted ADRs as active constraints.
+        </p>
+        <div class="adr-question__field">
+            <label class="adr-question__label" for="repo-adr-question">Question prompt</label>
+            <InputTextArea id="repo-adr-question"
+                           class="adr-question__input"
+                           @bind-Value="adrQuestionPrompt"
+                           @bind-Value:event="oninput"
+                           placeholder="Example: Should we standardize service-to-service communication on gRPC in this repository?" />
+        </div>
+        <div class="adr-question__actions">
+            <button type="button"
+                    class="adr-bootstrap__primary"
+                    @onclick="GenerateDraftFromQuestionAsync"
+                    disabled="@IsQuestionDraftActionBusy()">
+                @(isGeneratingQuestionDraft ? "Generating proposed ADR draft…" : "Generate proposed ADR draft")
+            </button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(questionDraftMessage))
+        {
+            <p class="@(questionDraftMessageIsError ? "repo-status repo-status--error" : "repo-status")">@questionDraftMessage</p>
+        }
+
+        @if (questionGenerationResult is not null)
+        {
+            <section class="adr-question-result">
+                <h3>Generated recommendation</h3>
+                <p><strong>Recommended option:</strong> @questionGenerationResult.Recommendation.PreferredOption</p>
+                <p>@questionGenerationResult.Recommendation.RecommendationSummary</p>
+                <p class="adr-question-result__fit">@questionGenerationResult.Recommendation.DecisionFit</p>
+                @if (questionGenerationResult.Recommendation.IsFallback)
+                {
+                    <p class="adr-question-result__fallback">
+                        Deterministic fallback active
+                        @if (!string.IsNullOrWhiteSpace(questionGenerationResult.Recommendation.FallbackReason))
+                        {
+                            <span>· @questionGenerationResult.Recommendation.FallbackReason</span>
+                        }
+                    </p>
+                }
+                @if (questionGenerationResult.Recommendation.Options.Count > 0)
+                {
+                    <div class="adr-question-result__section">
+                        <h4>Options with pros and cons</h4>
+                        <ul>
+                            @foreach (var option in questionGenerationResult.Recommendation.Options)
+                            {
+                                <li>
+                                    <strong>@option.OptionName</strong>
+                                    <span> (score @option.Score.ToString("0.00"))</span>
+                                    <p>@option.Summary</p>
+                                    @if (option.Pros.Count > 0)
+                                    {
+                                        <p><strong>Pros</strong></p>
+                                        <ul class="adr-question-result__sublist">
+                                            @foreach (var pro in option.Pros)
+                                            {
+                                                <li>@pro</li>
+                                            }
+                                        </ul>
+                                    }
+                                    @if (option.Cons.Count > 0)
+                                    {
+                                        <p><strong>Cons</strong></p>
+                                        <ul class="adr-question-result__sublist">
+                                            @foreach (var con in option.Cons)
+                                            {
+                                                <li>@con</li>
+                                            }
+                                        </ul>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </section>
+        }
     </section>
 
     <section class="panel adr-panel">
@@ -270,6 +373,12 @@ else
     private bool bootstrapMessageIsError;
     private string? uploadStatusMessage;
     private bool uploadStatusIsError;
+    private string adrQuestionPrompt = string.Empty;
+    private bool isGeneratingQuestionDraft;
+    private string? questionDraftMessage;
+    private bool questionDraftMessageIsError;
+    private AdrQuestionDraftResult? questionGenerationResult;
+    private Adr? generatedQuestionDraft;
 
     /// <summary>
     /// Loads repository ADR data for the requested route parameter.
@@ -290,6 +399,12 @@ else
         bootstrapMessageIsError = false;
         uploadStatusMessage = null;
         uploadStatusIsError = false;
+        adrQuestionPrompt = string.Empty;
+        isGeneratingQuestionDraft = false;
+        questionDraftMessage = null;
+        questionDraftMessageIsError = false;
+        questionGenerationResult = null;
+        generatedQuestionDraft = null;
 
         try
         {
@@ -617,6 +732,88 @@ else
     }
 
     /// <summary>
+    /// Generates a proposed ADR draft from the current repository question prompt.
+    /// </summary>
+    /// <returns>An asynchronous operation.</returns>
+    private async Task GenerateDraftFromQuestionAsync()
+    {
+        if (repository is null || IsQuestionDraftActionBusy())
+        {
+            return;
+        }
+
+        var trimmedQuestion = adrQuestionPrompt.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedQuestion))
+        {
+            questionDraftMessageIsError = true;
+            questionDraftMessage = "Enter a question prompt before generating an ADR draft.";
+            return;
+        }
+
+        isGeneratingQuestionDraft = true;
+        questionDraftMessage = null;
+        questionDraftMessageIsError = false;
+        questionGenerationResult = null;
+        generatedQuestionDraft = null;
+
+        try
+        {
+            var generated = await AdrQuestionDomainService.GenerateForRepositoryAsync(
+                RepositoryId,
+                trimmedQuestion,
+                CancellationToken.None);
+            if (generated is null)
+            {
+                questionDraftMessageIsError = true;
+                questionDraftMessage = $"Repository '{RepositoryId}' was not found.";
+                return;
+            }
+
+            var persistResult = await AdrDocumentService.CreateAdrAsync(
+                RepositoryId,
+                BuildQuestionDraftInput(generated),
+                CancellationToken.None);
+            if (persistResult is null)
+            {
+                questionDraftMessageIsError = true;
+                questionDraftMessage = "Unable to create generated ADR draft because repository context was lost.";
+                return;
+            }
+
+            questionGenerationResult = generated;
+            generatedQuestionDraft = persistResult.Adr;
+            questionDraftMessage = $"Created ADR-{persistResult.Adr.Number:0000} in Proposed status. Review and edit before explicit acceptance.";
+            questionDraftMessageIsError = false;
+            adrQuestionPrompt = string.Empty;
+            await ReloadRepositoryAdrsAsync();
+        }
+        catch (InvalidOperationException exception)
+        {
+            questionDraftMessageIsError = true;
+            questionDraftMessage = exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            questionDraftMessageIsError = true;
+            questionDraftMessage = exception.Message;
+        }
+        catch (FormatException exception)
+        {
+            questionDraftMessageIsError = true;
+            questionDraftMessage = exception.Message;
+        }
+        catch (IOException exception)
+        {
+            questionDraftMessageIsError = true;
+            questionDraftMessage = exception.Message;
+        }
+        finally
+        {
+            isGeneratingQuestionDraft = false;
+        }
+    }
+
+    /// <summary>
     /// Gets whether bootstrap actions are currently running.
     /// </summary>
     /// <returns><see langword="true"/> when busy; otherwise <see langword="false"/>.</returns>
@@ -675,5 +872,75 @@ else
         }
 
         return ManagedRepositoryDefaults.DefaultInboxFolder;
+    }
+
+    /// <summary>
+    /// Gets whether question-based ADR generation actions are currently running.
+    /// </summary>
+    /// <returns><see langword="true"/> when generation action is unavailable.</returns>
+    private bool IsQuestionDraftActionBusy()
+    {
+        return isGeneratingQuestionDraft || repository is null;
+    }
+
+    /// <summary>
+    /// Builds ADR create input from question generation output.
+    /// </summary>
+    /// <param name="generated">Generated question output.</param>
+    /// <returns>ADR editor input for persistence.</returns>
+    private static AdrEditorInput BuildQuestionDraftInput(AdrQuestionDraftResult generated)
+    {
+        ArgumentNullException.ThrowIfNull(generated);
+
+        var normalizedTitle = string.IsNullOrWhiteSpace(generated.Title)
+            ? "Answer repository architecture question"
+            : generated.Title.Trim();
+        var normalizedSlug = NormalizeQuestionSlug(generated.Slug, normalizedTitle);
+        return new AdrEditorInput
+        {
+            Title = normalizedTitle,
+            Slug = normalizedSlug,
+            Status = AdrStatus.Proposed,
+            Date = DateOnly.FromDateTime(DateTime.UtcNow),
+            DecisionMakers = ["Repository ADR authors"],
+            Consulted = [],
+            Informed = [],
+            SupersededByNumber = null,
+            BodyMarkdown = generated.DraftMarkdownBody
+        };
+    }
+
+    /// <summary>
+    /// Normalizes generated slug values to ADR filename conventions.
+    /// </summary>
+    /// <param name="suggestedSlug">Suggested slug candidate.</param>
+    /// <param name="fallbackTitle">Fallback title source when slug is missing.</param>
+    /// <returns>Normalized lowercase slug.</returns>
+    private static string NormalizeQuestionSlug(string suggestedSlug, string fallbackTitle)
+    {
+        var source = string.IsNullOrWhiteSpace(suggestedSlug) ? fallbackTitle : suggestedSlug;
+        var lowered = source.Trim().ToLowerInvariant();
+        var builder = new System.Text.StringBuilder();
+        var previousWasHyphen = false;
+        foreach (var character in lowered)
+        {
+            if (char.IsAsciiLetterOrDigit(character))
+            {
+                builder.Append(character);
+                previousWasHyphen = false;
+                continue;
+            }
+
+            if (builder.Length is 0 || previousWasHyphen)
+            {
+                continue;
+            }
+
+            builder.Append('-');
+            previousWasHyphen = true;
+        }
+
+        var normalized = builder.ToString().Trim('-');
+        return string.IsNullOrWhiteSpace(normalized) ? "adr-question-draft" : normalized;
     }
 }

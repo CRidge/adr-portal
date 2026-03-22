@@ -182,6 +182,56 @@ public sealed class DeterministicAiService : IAiService
     }
 
     /// <summary>
+    /// Generates deterministic ADR draft guidance from a repository question prompt.
+    /// </summary>
+    /// <param name="question">User-authored ADR question.</param>
+    /// <param name="existingAdrs">Existing ADR corpus used as repository constraints.</param>
+    /// <param name="ct">Cancellation token for the operation.</param>
+    /// <returns>Generated draft scaffolding and recommendation details.</returns>
+    public async Task<AdrQuestionGenerationResult> GenerateDraftFromQuestionAsync(
+        string question,
+        IReadOnlyList<AdrPortal.Core.Entities.Adr> existingAdrs,
+        CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(question);
+        ArgumentNullException.ThrowIfNull(existingAdrs);
+        ct.ThrowIfCancellationRequested();
+
+        var trimmedQuestion = WhitespaceRegex.Replace(question.Trim(), " ");
+        var activeConstraints = existingAdrs
+            .Where(adr => adr.Status is AdrPortal.Core.Entities.AdrStatus.Proposed or AdrPortal.Core.Entities.AdrStatus.Accepted)
+            .OrderBy(adr => adr.Number)
+            .ToArray();
+        var constraintSet = activeConstraints.Length > 0 ? activeConstraints : existingAdrs.ToArray();
+        var suggestedTitle = BuildQuestionTitle(trimmedQuestion);
+        var suggestedSlug = NormalizeSlug(suggestedTitle);
+        var constraintSummary = BuildConstraintSummary(activeConstraints);
+        var problemStatement = BuildQuestionProblemStatement(trimmedQuestion, constraintSummary);
+        var decisionDrivers = BuildQuestionDecisionDrivers(trimmedQuestion, constraintSummary);
+        var consideredOptions = BuildQuestionSeedOptions(trimmedQuestion, constraintSummary);
+        var draft = new AdrDraftForAnalysis
+        {
+            Title = suggestedTitle,
+            Slug = suggestedSlug,
+            ProblemStatement = problemStatement,
+            BodyMarkdown = BuildQuestionBodyMarkdown(trimmedQuestion, decisionDrivers, consideredOptions),
+            DecisionDrivers = decisionDrivers,
+            ConsideredOptions = consideredOptions
+        };
+
+        var recommendation = await EvaluateAndRecommendAsync(draft, constraintSet, ct);
+        return new AdrQuestionGenerationResult
+        {
+            Question = trimmedQuestion,
+            SuggestedTitle = suggestedTitle,
+            SuggestedSlug = suggestedSlug,
+            ProblemStatement = problemStatement,
+            DecisionDrivers = decisionDrivers,
+            Recommendation = recommendation
+        };
+    }
+
+    /// <summary>
     /// Finds affected ADRs using deterministic lexical overlap analysis.
     /// </summary>
     /// <param name="draftAdr">Draft ADR content under analysis.</param>
@@ -397,6 +447,121 @@ public sealed class DeterministicAiService : IAiService
         return options
             .Take(MaximumRecommendationOptions)
             .ToArray();
+    }
+
+    private static string BuildQuestionTitle(string question)
+    {
+        var withoutQuestionPrefix = question.StartsWith("Should ", StringComparison.OrdinalIgnoreCase)
+            ? question["Should ".Length..]
+            : question;
+        var withoutPunctuation = withoutQuestionPrefix
+            .Trim()
+            .TrimEnd('?', '.', '!');
+        if (string.IsNullOrWhiteSpace(withoutPunctuation))
+        {
+            return "Answer repository architecture question";
+        }
+
+        var normalized = WhitespaceRegex.Replace(withoutPunctuation, " ");
+        var sentenceCase = char.ToUpperInvariant(normalized[0]) + normalized[1..];
+        return $"Decide how to {ShortenForSentence(sentenceCase, sentenceCase)}";
+    }
+
+    private static string BuildQuestionProblemStatement(string question, string constraintSummary)
+    {
+        var constraintClause = string.IsNullOrWhiteSpace(constraintSummary)
+            ? "No active ADR constraints were detected."
+            : constraintSummary;
+        return $"The repository needs a documented architecture decision to answer: \"{question}\". {constraintClause}";
+    }
+
+    private static IReadOnlyList<string> BuildQuestionDecisionDrivers(string question, string constraintSummary)
+    {
+        var drivers = new List<string>
+        {
+            $"Provide a clear answer to the repository question: \"{question}\"",
+            "Capture options, pros, cons, and rationale in a reviewable proposed ADR",
+            "Keep rollout risk explicit before any acceptance action"
+        };
+        if (!string.IsNullOrWhiteSpace(constraintSummary))
+        {
+            drivers.Add(constraintSummary);
+        }
+
+        return drivers
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildQuestionSeedOptions(string question, string constraintSummary)
+    {
+        var options = new List<string>
+        {
+            $"Standardize on a single repository-wide approach to \"{question}\"",
+            $"Adopt an incremental pilot path to answer \"{question}\"",
+            $"Retain the current approach while adding explicit guardrails for \"{question}\""
+        };
+        if (!string.IsNullOrWhiteSpace(constraintSummary))
+        {
+            options.Add("Align to active ADR constraints with targeted exceptions only when justified");
+        }
+
+        return options
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaximumRecommendationOptions)
+            .ToArray();
+    }
+
+    private static string BuildQuestionBodyMarkdown(
+        string question,
+        IReadOnlyList<string> decisionDrivers,
+        IReadOnlyList<string> consideredOptions)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("## Context and Problem Statement");
+        builder.AppendLine();
+        builder.AppendLine($"Repository question: {question}");
+        builder.AppendLine();
+        builder.AppendLine("## Decision Drivers");
+        builder.AppendLine();
+        foreach (var driver in decisionDrivers)
+        {
+            builder.AppendLine($"- {driver}");
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("## Considered Options");
+        builder.AppendLine();
+        foreach (var option in consideredOptions)
+        {
+            builder.AppendLine($"- {option}");
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("## Decision Outcome");
+        builder.AppendLine();
+        builder.AppendLine("TBD");
+        builder.AppendLine();
+        builder.AppendLine("### Consequences");
+        builder.AppendLine();
+        builder.AppendLine("- Good, because …");
+        builder.AppendLine("- Bad, because …");
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildConstraintSummary(IReadOnlyList<AdrPortal.Core.Entities.Adr> activeConstraints)
+    {
+        if (activeConstraints.Count is 0)
+        {
+            return string.Empty;
+        }
+
+        var references = activeConstraints
+            .Take(4)
+            .Select(adr => $"ADR-{adr.Number:0000} ({adr.Title})")
+            .ToArray();
+        return $"Active ADR constraints to respect: {string.Join(", ", references)}.";
     }
 
     private static OptionScoreResult ScoreOption(
