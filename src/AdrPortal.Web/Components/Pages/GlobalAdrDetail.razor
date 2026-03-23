@@ -52,11 +52,11 @@ else
         </p>
         <div class="global-adr-question">
             <label class="global-adr-question__label" for="global-adr-question">Question prompt</label>
-            <InputTextArea id="global-adr-question"
-                           class="global-adr-question__input"
-                           @bind-Value="globalQuestionPrompt"
-                           @bind-Value:event="oninput"
-                           placeholder="Example: What unit test framework should we recommend for .NET repositories?" />
+            <textarea id="global-adr-question"
+                      class="global-adr-question__input"
+                      @bind="globalQuestionPrompt"
+                      @bind:event="oninput"
+                      placeholder="Example: What unit test framework should we recommend for .NET repositories?"></textarea>
         </div>
         <div class="global-adr-question__actions">
             <button type="button"

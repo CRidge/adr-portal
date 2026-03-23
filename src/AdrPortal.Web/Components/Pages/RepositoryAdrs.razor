@@ -84,11 +84,11 @@ else
         </p>
         <div class="adr-question__field">
             <label class="adr-question__label" for="repo-adr-question">Question prompt</label>
-            <InputTextArea id="repo-adr-question"
-                           class="adr-question__input"
-                           @bind-Value="adrQuestionPrompt"
-                           @bind-Value:event="oninput"
-                           placeholder="Example: Should we standardize service-to-service communication on gRPC in this repository?" />
+            <textarea id="repo-adr-question"
+                      class="adr-question__input"
+                      @bind="adrQuestionPrompt"
+                      @bind:event="oninput"
+                      placeholder="Example: Should we standardize service-to-service communication on gRPC in this repository?"></textarea>
         </div>
         <div class="adr-question__actions">
             <button type="button"
