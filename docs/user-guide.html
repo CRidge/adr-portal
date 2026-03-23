@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ADR Portal User Guide</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #14213d;
+      --muted: #4f5d75;
+      --accent: #2f5be6;
+      --border: #d7deea;
+      --code: #eef2ff;
+      --shadow: 0 10px 24px rgba(20, 33, 61, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    code {
+      background: var(--code);
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+      font-size: 0.95em;
+    }
+
+    .guide {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 2rem 1rem 4rem;
+    }
+
+    .hero,
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 1.4rem 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.25;
+      margin-top: 0;
+    }
+
+    .hero h1 {
+      margin-bottom: 0.5rem;
+      font-size: 1.9rem;
+    }
+
+    .hero p {
+      margin: 0.45rem 0;
+    }
+
+    .toc ol {
+      margin: 0.65rem 0 0;
+      padding-left: 1.2rem;
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .section p:last-child,
+    .section ul:last-child,
+    .section ol:last-child {
+      margin-bottom: 0;
+    }
+
+    .section ul,
+    .section ol {
+      padding-left: 1.25rem;
+    }
+
+    figure {
+      margin: 1rem 0 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fcfdff;
+      overflow: hidden;
+    }
+
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #eef2f7;
+    }
+
+    figcaption {
+      padding: 0.65rem 0.75rem 0.8rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    .subsection {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: #f3f6ff;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      margin-top: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="guide">
+    <header class="hero">
+      <h1>ADR Portal User Guide</h1>
+      <p>
+        This guide documents the currently implemented ADR Portal user workflows for repository ADR
+        authoring, AI-assisted drafting/evaluation, global template synchronization, and
+        cross-repository comparison/import.
+      </p>
+      <p class="callout">
+        Scope note: this page intentionally describes existing behavior only. It does not include roadmap or future-state features.
+      </p>
+      <nav class="toc" aria-label="Table of contents">
+        <h2>Contents</h2>
+        <ol>
+          <li><a href="#getting-started-navigation">Getting started and navigation</a></li>
+          <li><a href="#quick-start">Quick start (first-time setup)</a></li>
+          <li><a href="#repository-management">Repository management</a></li>
+          <li><a href="#repository-adr-workflows">Repository ADR workflows</a></li>
+          <li><a href="#global-library-workflows">Global library workflows</a></li>
+          <li><a href="#cross-repository-compare-import">Cross-repository compare/import</a></li>
+          <li><a href="#ai-assisted-features">AI-assisted features</a></li>
+          <li><a href="#sync-workflows">Sync workflows</a></li>
+          <li><a href="#prerequisites-caveats">Common prerequisites and caveats</a></li>
+        </ol>
+      </nav>
+    </header>
+
+    <section id="getting-started-navigation" class="section">
+      <h2>Getting started and navigation</h2>
+      <ol>
+        <li>Open the portal landing page (<code>/</code>) to review workspace status and active repository context.</li>
+        <li>Use sidebar navigation to switch between <strong>Overview</strong>, <strong>Global library</strong>, <strong>Compare repositories</strong>, and <strong>Repository settings</strong>.</li>
+        <li>Use the managed repository list in the sidebar to jump directly to each repository ADR library.</li>
+      </ol>
+      <p>
+        The header also shows the active repository context and a theme toggle. Pending global sync work appears as a badge on the Global library navigation item.
+      </p>
+      <figure>
+        <img src="assets/user-guide/1-home-overview.png" alt="Home overview showing workspace summary cards, suggested flow, and sidebar navigation">
+        <figcaption>
+          Home overview (<code>assets/user-guide/1-home-overview.png</code>) showing workspace context, repository counts, and navigation entry points.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="quick-start" class="section">
+      <h2>Quick start (first-time setup)</h2>
+      <ol>
+        <li>Open <code>/settings/repos</code> and add at least one repository using its Git remote URL.</li>
+        <li>Open that repository at <code>/repos/{repositoryId}</code>.</li>
+        <li>Create a new ADR (<code>+ New ADR</code>) or generate a proposed draft with <strong>Add ADR question</strong>.</li>
+        <li>Review ADR detail, then run lifecycle actions (Accept/Reject/Supersede/Deprecate) as needed.</li>
+        <li>Use <strong>Promote to global library</strong> to register or propose template updates.</li>
+      </ol>
+      <p class="callout">
+        Compare/import workflows require two configured repositories. Global sync workflows require at least one accepted ADR.
+      </p>
+    </section>
+
+    <section id="repository-management" class="section">
+      <h2>Repository management</h2>
+      <p>Repository setup is performed on <code>/settings/repos</code>.</p>
+      <ul>
+        <li>Add a repository using a Git remote URL (display name override is optional).</li>
+        <li>Root checkout path is inferred from the remote and displayed as a preview before save.</li>
+        <li>Default folders are <code>docs/adr</code> (ADR content) and <code>docs/inbox</code> (inbox import).</li>
+        <li>Mark repositories active/inactive, edit existing entries, or remove entries.</li>
+        <li>Leaving display name blank uses an inferred <code>owner/repository</code> name from the remote URL.</li>
+      </ul>
+      <p>
+        Changes refresh the managed repository catalog and inbox watcher registrations.
+      </p>
+      <figure>
+        <img src="assets/user-guide/2-settings-repos.png" alt="Repository settings page with add/edit form and configured repositories table">
+        <figcaption>
+          Repository settings (<code>assets/user-guide/2-settings-repos.png</code>) with add/edit controls, inferred path previews, and repository list actions.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="repository-adr-workflows" class="section">
+      <h2>Repository ADR workflows</h2>
+
+      <section class="subsection">
+        <h3>Repository ADR list (<code>/repos/{repositoryId}</code>)</h3>
+        <ul>
+          <li>Browse ADRs with status chips and full-text search (number, title, slug, status).</li>
+          <li>Create a new ADR draft or open ADR detail/edit views.</li>
+          <li>Use <strong>Add ADR question</strong> to generate a proposed ADR draft from a repository question prompt.</li>
+          <li>Repository question generation uses accepted repository ADRs as active constraints.</li>
+          <li>On empty ADR libraries, run <strong>Bootstrap ADRs with AI</strong>, review proposal cards, and accept selected proposals.</li>
+          <li>Use inbox upload to import <code>.md</code> files through the same inbox import pipeline as watcher intake.</li>
+          <li>Question-generated, bootstrap-generated, and imported drafts are created as <strong>Proposed</strong> and require review.</li>
+        </ul>
+        <figure>
+          <img src="assets/user-guide/3-repo-adr-list.png" alt="Repository ADR list page with question generation, status filters, and ADR rows">
+          <figcaption>
+            Repository ADR list (<code>assets/user-guide/3-repo-adr-list.png</code>) showing list filters, question-based draft generation, and ADR actions.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section class="subsection">
+        <h3>Repository ADR detail (<code>/repos/{repositoryId}/adr/{number}</code>)</h3>
+        <ul>
+          <li>Review full ADR content, metadata, structured decision sections, and status badge.</li>
+          <li>Run lifecycle transitions: Accept, Reject, Supersede, and Deprecate (based on current status).</li>
+          <li>Run <strong>Find Affected ADRs</strong> to analyze related ADR impacts.</li>
+          <li>Use <strong>Promote to global library</strong> to create or update global template proposals.</li>
+          <li>Review global sync status (template linkage, base version, pending proposal/update availability).</li>
+          <li>When available, follow deep links to <strong>Repo → library proposals</strong> and global detail rollout actions.</li>
+        </ul>
+        <figure>
+          <img src="assets/user-guide/4-repo-adr-detail.png" alt="Repository ADR detail page with lifecycle actions, affected ADR analysis, and global sync controls">
+          <figcaption>
+            Repository ADR detail (<code>assets/user-guide/4-repo-adr-detail.png</code>) with lifecycle transitions, affected ADR analysis, and sync actions.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section class="subsection">
+        <h3>Repository ADR editor (<code>/repos/{repositoryId}/adr/new</code> and <code>/edit</code>)</h3>
+        <ul>
+          <li>Edit MADR metadata (title, slug, date, status, decision makers, consulted, informed, superseded-by number).</li>
+          <li>Edit markdown body with standard MADR sections.</li>
+          <li>Run <strong>Evaluate ADR draft</strong> for AI recommendation and ranked option analysis.</li>
+          <li>Apply recommendation output back into the draft body.</li>
+          <li>Insert manual evaluation scaffold when AI guidance is unavailable/fallback.</li>
+        </ul>
+        <p class="callout">
+          The editor accepts markdown body content; raw HTML content is rejected for safety.
+        </p>
+        <figure>
+          <img src="assets/user-guide/5-repo-adr-editor.png" alt="Repository ADR editor with MADR metadata fields, markdown body, and AI evaluation controls">
+          <figcaption>
+            Repository ADR editor (<code>assets/user-guide/5-repo-adr-editor.png</code>) with metadata fields, markdown authoring, and recommendation actions.
+          </figcaption>
+        </figure>
+      </section>
+    </section>
+
+    <section id="global-library-workflows" class="section">
+      <h2>Global library workflows</h2>
+
+      <section class="subsection">
+        <h3>Global ADR library overview (<code>/global</code>)</h3>
+        <ul>
+          <li>View all registered global ADR templates with current version numbers.</li>
+          <li>Track instance count, update-available count, and pending proposal count.</li>
+          <li>Open any global ADR detail for proposal triage and instance update actions.</li>
+        </ul>
+        <figure>
+          <img src="assets/user-guide/6-global-library-overview.png" alt="Global ADR library overview table with version, instance, update, and pending proposal metrics">
+          <figcaption>
+            Global library overview (<code>assets/user-guide/6-global-library-overview.png</code>) for sync workload triage across repositories.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section class="subsection">
+        <h3>Global ADR detail (<code>/global/{globalId}</code>)</h3>
+        <ul>
+          <li>Review global ADR stats, version history, and baseline text diff between latest versions.</li>
+          <li>Manage <strong>Repo → library proposals</strong>: review draft markdown, accept, or discard.</li>
+          <li>Question-generated proposals are labeled and reviewed through the same proposal triage table.</li>
+          <li>Manage <strong>Library → repos instances</strong>: apply update, customise, or dismiss update notifications.</li>
+        </ul>
+        <figure>
+          <img src="assets/user-guide/7-global-adr-detail.png" alt="Global ADR detail showing version history, proposal review table, baseline diff, and linked instances">
+          <figcaption>
+            Global ADR detail (<code>assets/user-guide/7-global-adr-detail.png</code>) with proposal review and instance rollout controls.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section class="subsection">
+        <h3>Question-generated global proposal path</h3>
+        <ul>
+          <li>Use <strong>Add ADR question</strong> to generate guidance-based proposal content for the selected global ADR.</li>
+          <li>The generated draft is inserted as a pending proposal under <strong>Repo → library proposals</strong>.</li>
+          <li>Use <strong>Review draft</strong> then accept/discard to complete triage.</li>
+        </ul>
+        <figure>
+          <img src="assets/user-guide/8-global-question-generated.png" alt="Global ADR detail showing question-generated recommendation and next-step guidance">
+          <figcaption>
+            Question-generated recommendation (<code>assets/user-guide/8-global-question-generated.png</code>) in global detail.
+          </figcaption>
+        </figure>
+        <figure>
+          <img src="assets/user-guide/9-repo-library-proposals-preview.png" alt="Repo to library proposals table with draft preview and accept/discard actions">
+          <figcaption>
+            Proposal preview in Repo → library proposals (<code>assets/user-guide/9-repo-library-proposals-preview.png</code>) before accept/discard.
+          </figcaption>
+        </figure>
+      </section>
+    </section>
+
+    <section id="cross-repository-compare-import" class="section">
+      <h2>Cross-repository compare/import</h2>
+      <p>
+        The compare workflow (<code>/compare</code>) ranks source ADRs against a target repository ADR corpus, then imports selected source ADRs as proposed drafts.
+      </p>
+      <ul>
+        <li>Select distinct source and target repositories.</li>
+        <li>Run comparison to compute relevance score and target overlap candidates.</li>
+        <li>Select source ADR rows and import into the target as proposed ADRs with remapped numbers.</li>
+        <li>Review imported ADRs from the import result section and continue lifecycle/sync actions from ADR detail pages.</li>
+      </ul>
+      <figure>
+        <img src="assets/user-guide/10-compare-repositories.png" alt="Compare repositories page with source-target selectors, ranked rows, and import selected ADR actions">
+        <figcaption>
+          Compare and import workflow (<code>assets/user-guide/10-compare-repositories.png</code>) including ranked source ADRs and import result.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="ai-assisted-features" class="section">
+      <h2>AI-assisted features</h2>
+      <ul>
+        <li><strong>Repository question → proposed ADR draft:</strong> generate a draft ADR from a repository-specific architecture question.</li>
+        <li><strong>Draft evaluation:</strong> evaluate ADR options, recommendation, risks, and alternatives from the editor.</li>
+        <li><strong>Affected ADR analysis:</strong> find potentially impacted ADRs from a repository ADR detail page.</li>
+        <li><strong>Bootstrap for empty ADR libraries:</strong> scan codebase, generate proposal cards, and accept selected drafts.</li>
+        <li><strong>Global question guidance:</strong> generate question-based proposal content for a global ADR template.</li>
+        <li><strong>Cross-repository relevance scoring:</strong> ranking in compare view is AI-assisted and surfaced with score/summary/fallback metadata.</li>
+      </ul>
+      <p class="callout">
+        When AI providers are unavailable, the portal can surface deterministic fallback messaging while keeping manual review workflows available.
+      </p>
+    </section>
+
+    <section id="sync-workflows" class="section">
+      <h2>Sync workflows</h2>
+      <h3>Repository → Global library</h3>
+      <ol>
+        <li>Open repository ADR detail and use <strong>Promote to global library</strong>.</li>
+        <li>If unlinked, promotion creates a new global template and links ADR metadata (<code>global-id</code>, <code>global-version</code>).</li>
+        <li>If linked and locally changed, promotion creates a pending Repo → library proposal for review.</li>
+      </ol>
+
+      <h3>Global library proposal triage</h3>
+      <ol>
+        <li>Open global ADR detail and inspect <strong>Repo → library proposals</strong>.</li>
+        <li>Use <strong>Review draft</strong> to inspect markdown.</li>
+        <li>Accept to publish next global version, or discard to close without publishing.</li>
+      </ol>
+
+      <h3>Global library → Repository instances</h3>
+      <ol>
+        <li>Use <strong>Library → repos instances</strong> table for rollout decisions.</li>
+        <li><strong>Apply</strong> updates ADR content/status from current global version.</li>
+        <li><strong>Customise</strong> marks the instance as customised against the current version.</li>
+        <li><strong>Dismiss</strong> clears the current update notification without applying template content.</li>
+      </ol>
+    </section>
+
+    <section id="prerequisites-caveats" class="section">
+      <h2>Common prerequisites and caveats</h2>
+      <ul>
+        <li>Most workflows require at least one configured repository; compare requires at least two.</li>
+        <li>Repository Git remote URL is required in settings; checkout path and display defaults are inferred from it.</li>
+        <li>Compare requires distinct source and target repositories.</li>
+        <li>Inbox import accepts markdown files (<code>.md</code>) and enforces size/content validation (including upload size limits).</li>
+        <li>Question-generated and compare-imported ADRs are created in <strong>Proposed</strong> status and require explicit review/transition.</li>
+        <li>Global <strong>Add ADR question</strong> creates a pending proposal entry for manual accept/discard review.</li>
+        <li>Promote-to-global can be unavailable when a pending proposal already exists or when no local template changes are detected.</li>
+        <li>Global update actions target ADR instances linked by global ID/version metadata.</li>
+        <li>If AI providers are unavailable, deterministic fallback output is shown and manual review paths remain available.</li>
+        <li>Git remote configuration is required for queued Git/PR automation paths where those workflows are enabled.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
