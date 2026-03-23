@@ -27,7 +27,7 @@ else
                 <p class="eyebrow">Global ADR template</p>
                 <h1>@detail.Title</h1>
                 <p class="lead">
-                    Global ID <code>@detail.GlobalId</code> · current version <strong>v@detail.CurrentVersion</strong>
+                    Global ID <code>@detail.GlobalId</code> · current version <strong>@($"v{detail.CurrentVersion}")</strong>
                 </p>
             </div>
             <div class="global-adr-page__actions">
@@ -123,6 +123,19 @@ else
                     </div>
                 }
             </section>
+            <section class="global-adr-next-step">
+                <h4>Next step: review and decide</h4>
+                <ol>
+                    <li>Open <strong>Repo → library proposals</strong> for this global ADR.</li>
+                    <li>Select <strong>Review draft</strong> to inspect the generated markdown.</li>
+                    <li>Choose <strong>Accept</strong> to publish a new global version, or <strong>Discard</strong> to reject.</li>
+                </ol>
+                <div class="global-adr-next-step__actions">
+                    <a class="global-adr-page__link global-adr-page__link--cta" href="#repo-library-proposals">
+                        Go to pending proposals
+                    </a>
+                </div>
+            </section>
         }
     </section>
 
@@ -142,7 +155,7 @@ else
                 {
                     <li class="global-adr-versions__row">
                         <div>
-                            <strong>v@version.VersionNumber · @version.Title</strong>
+                            <strong>@($"v{version.VersionNumber}") · @version.Title</strong>
                             <span>@version.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm 'UTC'")</span>
                         </div>
                         <details>
@@ -157,19 +170,12 @@ else
 
     <section class="panel global-adr-panel">
         <header class="global-adr-panel__header">
-            <h2>Baseline diff viewer</h2>
-            <small>v@(detail.Versions.Count > 1 ? detail.Versions[1].VersionNumber : 0) → v@(detail.Versions.Count > 0 ? detail.Versions[0].VersionNumber : 0)</small>
-        </header>
-        <pre class="global-adr-diff">@detail.BaselineDiff</pre>
-    </section>
-
-    <section class="panel global-adr-panel">
-        <header class="global-adr-panel__header">
             <h2 id="repo-library-proposals">Repo → library proposals</h2>
             <small>@detail.PendingProposalCount pending</small>
         </header>
         <p class="global-adr-panel__help">
-            Review repository-authored template changes here. Accept to publish a new global version or discard when the change is repository-specific.
+            Review repository-authored template changes here. Use <strong>Review draft</strong> to inspect markdown,
+            then accept to publish a new global version or discard when the change is repository-specific.
         </p>
         @if (!string.IsNullOrWhiteSpace(proposalMessage))
         {
@@ -193,10 +199,12 @@ else
                 <tbody>
                     @foreach (var proposal in detail.Proposals)
                     {
+                        var isDraftPreviewVisible = expandedProposalIds.Contains(proposal.Id);
+                        var isQuestionProposal = proposal.LocalAdrNumber == 0;
                         <tr>
                             <td>
                                 <strong>
-                                    @if (proposal.LocalAdrNumber == 0)
+                                    @if (isQuestionProposal)
                                     {
                                         @($"{proposal.RepositoryDisplayName} · Question proposal")
                                     }
@@ -206,31 +214,60 @@ else
                                     }
                                 </strong>
                                 <div class="global-adr-table__meta">@proposal.ProposedTitle</div>
+                                <div class="global-adr-table__meta">Created @proposal.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm 'UTC'")</div>
+                                @if (isQuestionProposal)
+                                {
+                                    <div class="global-adr-flags">
+                                        <span class="global-adr-flag global-adr-flag--question">Question-generated</span>
+                                    </div>
+                                }
                             </td>
-                            <td>v@proposal.ProposedFromVersion</td>
+                            <td>@($"v{proposal.ProposedFromVersion}")</td>
                             <td>@(proposal.IsPending ? "Pending" : "Reviewed")</td>
                             <td>
-                                @if (proposal.IsPending)
-                                {
-                                    <div class="global-adr-table__actions">
+                                <div class="global-adr-table__actions">
+                                    <button type="button" class="global-adr-button global-adr-button--review" @onclick="() => ToggleProposalPreview(proposal.Id)">
+                                        @(isDraftPreviewVisible ? "Hide draft" : "Review draft")
+                                    </button>
+                                    @if (proposal.IsPending)
+                                    {
                                         <button type="button" class="global-adr-button global-adr-button--accept" @onclick="() => AcceptProposalAsync(proposal.Id)" disabled="@isApplyingProposal">
                                             Accept
                                         </button>
                                         <button type="button" class="global-adr-button global-adr-button--reject" @onclick="() => DiscardProposalAsync(proposal.Id)" disabled="@isApplyingProposal">
                                             Discard
                                         </button>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <span class="shell__hint">No actions</span>
-                                }
+                                    }
+                                    else
+                                    {
+                                        <span class="shell__hint">No actions</span>
+                                    }
+                                </div>
                             </td>
                         </tr>
+                        @if (isDraftPreviewVisible)
+                        {
+                            <tr class="global-adr-table__preview-row">
+                                <td colspan="4">
+                                    <div class="global-adr-table__preview">
+                                        <p class="global-adr-table__meta"><strong>Draft markdown preview</strong></p>
+                                        <pre>@proposal.ProposedMarkdownContent</pre>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
         }
+    </section>
+
+    <section class="panel global-adr-panel">
+        <header class="global-adr-panel__header">
+            <h2>Baseline diff viewer</h2>
+            <small>@($"v{(detail.Versions.Count > 1 ? detail.Versions[1].VersionNumber : 0)} → v{(detail.Versions.Count > 0 ? detail.Versions[0].VersionNumber : 0)}")</small>
+        </header>
+        <pre class="global-adr-diff">@detail.BaselineDiff</pre>
     </section>
 
     <section class="panel global-adr-panel">
@@ -276,7 +313,7 @@ else
                                     @instance.LastKnownStatusView.Label
                                 </span>
                             </td>
-                            <td>v@instance.BaseTemplateVersion</td>
+                            <td>@($"v{instance.BaseTemplateVersion}")</td>
                             <td>
                                 <div class="global-adr-flags">
                                     @if (instance.HasLocalChanges)
@@ -332,6 +369,7 @@ else
     private string? instanceMessage;
     private bool instanceError;
     private bool isApplyingInstance;
+    private readonly HashSet<int> expandedProposalIds = [];
 
     /// <summary>
     /// Loads global ADR detail projection.
@@ -352,6 +390,7 @@ else
         instanceMessage = null;
         instanceError = false;
         isApplyingInstance = false;
+        expandedProposalIds.Clear();
 
         try
         {
@@ -425,8 +464,14 @@ else
             globalQuestionResult = generated;
             globalQuestionPrompt = string.Empty;
             globalQuestionError = false;
-            globalQuestionMessage = "Created a pending Repo → library proposal from the generated draft.";
+            globalQuestionMessage = "Draft created. Review it under Repo → library proposals, then accept or discard.";
             detail = await GlobalLibraryService.GetDetailAsync(GlobalId, CancellationToken.None);
+            var generatedQuestionProposal = detail?.Proposals.FirstOrDefault(
+                proposal => proposal.IsPending && proposal.LocalAdrNumber == 0);
+            if (generatedQuestionProposal is not null)
+            {
+                _ = expandedProposalIds.Add(generatedQuestionProposal.Id);
+            }
         }
         catch (InvalidOperationException exception)
         {
@@ -624,6 +669,18 @@ else
         finally
         {
             isApplyingInstance = false;
+        }
+    }
+
+    /// <summary>
+    /// Toggles proposal markdown preview visibility for one proposal row.
+    /// </summary>
+    /// <param name="proposalId">Proposal identifier.</param>
+    private void ToggleProposalPreview(int proposalId)
+    {
+        if (!expandedProposalIds.Add(proposalId))
+        {
+            _ = expandedProposalIds.Remove(proposalId);
         }
     }
 

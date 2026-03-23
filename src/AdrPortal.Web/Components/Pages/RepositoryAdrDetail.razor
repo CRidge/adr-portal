@@ -160,7 +160,7 @@ else
             <section id="global-sync" class="adr-detail__sync">
                 <h3>Global sync</h3>
                 <p class="adr-detail__sync-summary">
-                    Base template v@syncStatus.BaseTemplateVersion · Current global v@syncStatus.CurrentGlobalVersion
+                    @($"Base template v{syncStatus.BaseTemplateVersion} · Current global v{syncStatus.CurrentGlobalVersion}")
                 </p>
                 <ul class="adr-detail__sync-steps">
                     <li>Repo → library: use <strong>Promote to global library</strong> when this ADR has template improvements.</li>

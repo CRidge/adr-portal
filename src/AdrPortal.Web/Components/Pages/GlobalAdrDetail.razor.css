@@ -31,6 +31,12 @@
     background-color: #f3f4f6;
 }
 
+.global-adr-page__link--cta {
+    border-color: #bfdbfe;
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
 .global-adr-page__stats {
     display: flex;
     flex-wrap: wrap;
@@ -159,6 +165,29 @@
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
+}
+
+.global-adr-next-step {
+    border-top: 1px solid var(--app-border);
+    background-color: #f8fafc;
+    padding: 0.75rem 1rem 0.9rem;
+}
+
+.global-adr-next-step h4 {
+    margin: 0;
+}
+
+.global-adr-next-step ol {
+    margin: 0.5rem 0 0;
+    padding-left: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.86rem;
+}
+
+.global-adr-next-step__actions {
+    margin-top: 0.7rem;
 }
 
 .global-adr-versions {
@@ -322,6 +351,27 @@
     border-color: #bfdbfe;
     color: #1d4ed8;
     background-color: #dbeafe;
+}
+
+.global-adr-flag--question {
+    border-color: #d8b4fe;
+    color: #6b21a8;
+    background-color: #f3e8ff;
+}
+
+.global-adr-table__preview-row td {
+    background-color: #fafcff;
+}
+
+.global-adr-table__preview pre {
+    margin: 0.4rem 0 0;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background-color: #ffffff;
+    padding: 0.7rem;
+    white-space: pre-wrap;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 0.79rem;
 }
 
 @media (max-width: 960px) {

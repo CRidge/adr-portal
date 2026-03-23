@@ -74,7 +74,7 @@ else
                                 </a>
                                 <div class="global-library-table__id">@item.GlobalId</div>
                             </td>
-                            <td>v@item.CurrentVersion</td>
+                            <td>@($"v{item.CurrentVersion}")</td>
                             <td>@item.InstanceCount</td>
                             <td>@item.UpdateAvailableCount</td>
                             <td>@item.PendingProposalCount</td>

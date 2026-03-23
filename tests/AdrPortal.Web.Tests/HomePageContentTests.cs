@@ -132,6 +132,7 @@ public class HomePageContentTests
         await Assert.That(detailMarkup.Contains("This ADR can be promoted directly.", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Promotion is unavailable until this ADR is linked to a global template", StringComparison.Ordinal)).IsFalse();
         await Assert.That(detailMarkup.Contains("/global/{syncStatus.GlobalId}", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("v@syncStatus.BaseTemplateVersion", StringComparison.Ordinal)).IsFalse();
         await Assert.That(detailMarkup.Contains("Open global library", StringComparison.Ordinal)).IsFalse();
         await Assert.That(detailMarkup.Contains("Mark superseded", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Mark deprecated", StringComparison.Ordinal)).IsTrue();
@@ -175,9 +176,19 @@ public class HomePageContentTests
         await Assert.That(detailMarkup.Contains("Add ADR question", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Guidance-only generation", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Generate proposal", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Next step: review and decide", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Go to pending proposals", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Review draft", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Draft markdown preview", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(detailMarkup.Contains("Question-generated", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Repo → library proposals", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Library → repos instances", StringComparison.Ordinal)).IsTrue();
         await Assert.That(detailMarkup.Contains("Review repository-authored template changes here.", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(overviewMarkup.Contains("v@item.CurrentVersion", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(detailMarkup.Contains("v@detail.CurrentVersion", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(detailMarkup.Contains("v@version.VersionNumber", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(detailMarkup.Contains("v@proposal.ProposedFromVersion", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(detailMarkup.Contains("v@instance.BaseTemplateVersion", StringComparison.Ordinal)).IsFalse();
     }
 
     private static string ResolveRepositoryRoot()
